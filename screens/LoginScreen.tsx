@@ -16,20 +16,23 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Types
+// Types - align with navigator
 type RootStackParamList = {
   Login: undefined;
-  Dashboard: undefined;
-  CheckIn: undefined;
-  News: undefined;
-  Profile: undefined;
+  Home: undefined;
 };
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
 // Services
 import { login } from '../services/auth';
-import { getDeviceToken } from '../services/notification';
+// Optional notification service; app should work without it
+let getDeviceToken: (() => Promise<string | null>) | undefined;
+try {
+  // Dynamic require so missing file doesn't crash app
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  getDeviceToken = require('../services/notification').getDeviceToken;
+} catch {}
 
 const LoginScreen: React.FC = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
@@ -61,19 +64,21 @@ const LoginScreen: React.FC = () => {
     setError('');
 
     // Validate inputs
-    if (!email.trim()) {
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+    if (!trimmedEmail) {
       setError('กรุณากรอกอีเมล');
       return;
     }
 
-    if (!password.trim()) {
+    if (!trimmedPassword) {
       setError('กรุณากรอกรหัสผ่าน');
       return;
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(trimmedEmail)) {
       setError('รูปแบบอีเมลไม่ถูกต้อง');
       return;
     }
@@ -82,7 +87,7 @@ const LoginScreen: React.FC = () => {
 
     try {
       // Call login API
-      const loginData = await login(email, password);
+      const loginData = await login(trimmedEmail, trimmedPassword);
       
       if (loginData.success && loginData.token) {
         // Store token
@@ -97,21 +102,20 @@ const LoginScreen: React.FC = () => {
           await AsyncStorage.removeItem('remembered_email');
         }
 
-        // Get device token for push notifications
-        try {
-          const deviceToken = await getDeviceToken();
-          if (deviceToken) {
-            await AsyncStorage.setItem('device_token', deviceToken);
+        // Get device token for push notifications (best-effort)
+        if (getDeviceToken) {
+          try {
+            const deviceToken = await getDeviceToken();
+            if (deviceToken) {
+              await AsyncStorage.setItem('device_token', deviceToken);
+            }
+          } catch (notificationError) {
+            console.log('Failed to get device token:', notificationError);
           }
-        } catch (notificationError) {
-          console.log('Failed to get device token:', notificationError);
         }
 
-        // Navigate to Dashboard based on user role
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Dashboard' }],
-        });
+        // Navigate to Home after successful login
+        navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
 
       } else {
         setError(loginData.message || 'ล็อกอินไม่สำเร็จ');

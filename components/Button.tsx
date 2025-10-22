@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle } from 'react-native';
 
 interface ButtonProps {
@@ -9,7 +9,7 @@ interface ButtonProps {
   style?: ViewStyle;
 }
 
-const Button: React.FC<ButtonProps> = ({ title, onPress, loading = false, disabled = false, style }) => {
+const ButtonComponent: React.FC<ButtonProps> = ({ title, onPress, loading = false, disabled = false, style }) => {
   return (
     <TouchableOpacity
       style={[styles.button, disabled ? styles.disabled : {}, style]}
@@ -24,6 +24,8 @@ const Button: React.FC<ButtonProps> = ({ title, onPress, loading = false, disabl
     </TouchableOpacity>
   );
 };
+
+const Button = memo(ButtonComponent);
 
 const styles = StyleSheet.create({
   button: {

@@ -1,6 +1,22 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const SUPABASE_URL = 'https://wkyiathlmwllkjvdhgzt.supabase.co'
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndreWlhdGhsbXdsbGtqdmRoZ3p0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEwNTIwMjYsImV4cCI6MjA3NjYyODAyNn0.S4xuKW-iKJUa1EIbhyGZ00jtBvqhFhZYZ5AVb72rdfg'
+// Read from environment instead of hard-coding secrets
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  // Fail fast so secrets aren't accidentally committed and misconfigured apps are obvious
+  throw new Error(
+    'Missing Supabase env vars. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.'
+  );
+}
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false, // React Native
+    storage: AsyncStorage,
+  },
+});
