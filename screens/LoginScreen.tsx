@@ -17,19 +17,11 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Types
-type RootStackParamList = {
-  Login: undefined;
-  Dashboard: undefined;
-  CheckIn: undefined;
-  News: undefined;
-  Profile: undefined;
-};
-
+import { RootStackParamList } from '../types';
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
 // Services
 import { login } from '../services/auth';
-import { getDeviceToken } from '../services/notification';
 
 const LoginScreen: React.FC = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
@@ -84,11 +76,10 @@ const LoginScreen: React.FC = () => {
       // Call login API
       const loginData = await login(email, password);
       
-      if (loginData.success && loginData.token) {
-        // Store token
-        await AsyncStorage.setItem('auth_token', loginData.token);
-        await AsyncStorage.setItem('refresh_token', loginData.refreshToken);
-        await AsyncStorage.setItem('user_data', JSON.stringify(loginData.user));
+      if (loginData.success && loginData.user) {
+        // Store session data
+        await AsyncStorage.setItem('auth_session', JSON.stringify(loginData.session));
+        await AsyncStorage.setItem('user_profile', JSON.stringify(loginData.user));
 
         // Store email if remember me is checked
         if (rememberMe) {
@@ -97,17 +88,7 @@ const LoginScreen: React.FC = () => {
           await AsyncStorage.removeItem('remembered_email');
         }
 
-        // Get device token for push notifications
-        try {
-          const deviceToken = await getDeviceToken();
-          if (deviceToken) {
-            await AsyncStorage.setItem('device_token', deviceToken);
-          }
-        } catch (notificationError) {
-          console.log('Failed to get device token:', notificationError);
-        }
-
-        // Navigate to Dashboard based on user role
+        // Navigate to Dashboard
         navigation.reset({
           index: 0,
           routes: [{ name: 'Dashboard' }],
@@ -211,13 +192,21 @@ const LoginScreen: React.FC = () => {
               (loading || !email || !password) && styles.loginButtonDisabled
             ]}
             onPress={handleLogin}
-            disabled={loading || !email || !password}
+            disabled={loading || !email.trim() || !password.trim()}
           >
             {loading ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
               <Text style={styles.loginButtonText}>เข้าสู่ระบบ</Text>
             )}
+          </TouchableOpacity>
+
+          {/* Register Button */}
+          <TouchableOpacity 
+            style={styles.registerButton}
+            onPress={() => navigation.navigate('Register')}
+          >
+            <Text style={styles.registerButtonText}>ยังไม่มีบัญชี? ลงทะเบียนที่นี่</Text>
           </TouchableOpacity>
 
           {/* Role Info */}
@@ -381,6 +370,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  registerButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#007bff',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  registerButtonText: {
+    color: '#007bff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   roleInfo: {
     backgroundColor: '#e7f3ff',
