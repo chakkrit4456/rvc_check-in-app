@@ -15,11 +15,27 @@ interface LoginResponse {
   message?: string;
 }
 
-const API_BASE_URL = 'https://your-api-domain.com/api/v1';
+// Read from environment instead of using a placeholder URL
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    return response;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export const login = async (email: string, password: string): Promise<LoginResponse> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    if (!API_BASE_URL) {
+      return { success: false, message: 'ระบบยังไม่ได้ตั้งค่า API_BASE_URL' };
+    }
+
+    const response = await fetchWithTimeout(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -30,7 +46,13 @@ export const login = async (email: string, password: string): Promise<LoginRespo
       }),
     });
 
-    const data = await response.json();
+    // Try to parse JSON safely
+    let data: any = null;
+    try {
+      data = await response.json();
+    } catch {
+      // Fall through; non-JSON response
+    }
 
     if (response.ok) {
       return {
@@ -42,7 +64,7 @@ export const login = async (email: string, password: string): Promise<LoginRespo
     } else {
       return {
         success: false,
-        message: data.message || 'ล็อกอินไม่สำเร็จ',
+        message: (data && (data.message || data.error)) || 'ล็อกอินไม่สำเร็จ',
       };
     }
   } catch (error) {
@@ -58,13 +80,13 @@ export const logout = async (): Promise<void> => {
   try {
     // Call logout API if needed
     const token = await AsyncStorage.getItem('auth_token');
-    if (token) {
-      await fetch(`${API_BASE_URL}/auth/logout`, {
+    if (token && API_BASE_URL) {
+      await fetchWithTimeout(`${API_BASE_URL}/auth/logout`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
-      });
+      }).catch(() => undefined);
     }
 
     // Clear local storage

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { TextInput, View, Text, StyleSheet, KeyboardTypeOptions, ViewStyle } from 'react-native';
 
 interface InputProps {
@@ -11,7 +11,7 @@ interface InputProps {
   style?: ViewStyle;
 }
 
-const Input: React.FC<InputProps> = ({
+const InputComponent: React.FC<InputProps> = ({
   label,
   placeholder,
   value,
@@ -35,6 +35,8 @@ const Input: React.FC<InputProps> = ({
     </View>
   );
 };
+
+const Input = memo(InputComponent);
 
 const styles = StyleSheet.create({
   container: { marginVertical: 8 },

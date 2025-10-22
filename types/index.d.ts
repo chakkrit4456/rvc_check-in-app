@@ -67,13 +67,10 @@ export interface News {
 // ---------------------
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+// Keep the route list aligned with the actual navigator
 export type RootStackParamList = {
   Login: undefined;
-  Register: undefined;
-  Dashboard: undefined;
-  Checkin: undefined;
-  Profile: undefined;
-  News: undefined;
+  Home: undefined;
 };
 
 export type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
