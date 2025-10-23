@@ -31,6 +31,7 @@ const LoginScreen: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [rememberMe, setRememberMe] = useState<boolean>(false);
+  const [loginType, setLoginType] = useState<'email' | 'student'>('student');
 
   useEffect(() => {
     checkStoredCredentials();
@@ -54,34 +55,47 @@ const LoginScreen: React.FC = () => {
 
     // Validate inputs
     if (!email.trim()) {
-      setError('กรุณากรอกอีเมล');
+      setError(loginType === 'student' ? 'กรุณากรอกรหัสนักศึกษา' : 'กรุณากรอกอีเมล');
       return;
     }
 
     if (!password.trim()) {
-      setError('กรุณากรอกรหัสผ่าน');
+      setError(loginType === 'student' ? 'กรุณากรอกรหัสบัตรประชาชน' : 'กรุณากรอกรหัสผ่าน');
       return;
     }
 
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError('รูปแบบอีเมลไม่ถูกต้อง');
-      return;
+    // Validate based on login type
+    if (loginType === 'email') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setError('รูปแบบอีเมลไม่ถูกต้อง');
+        return;
+      }
+    } else {
+      // Validate student ID format (assuming it's numeric)
+      if (!/^\d+$/.test(email)) {
+        setError('รหัสนักศึกษาต้องเป็นตัวเลขเท่านั้น');
+        return;
+      }
+      // Validate national ID format (13 digits)
+      if (!/^\d{13}$/.test(password)) {
+        setError('รหัสบัตรประชาชนต้องมี 13 หลัก');
+        return;
+      }
     }
 
     setLoading(true);
 
     try {
       // Call login API
-      const loginData = await login(email, password);
+      const loginData = await login(email, password, loginType);
       
       if (loginData.success && loginData.user) {
         // Store session data
         await AsyncStorage.setItem('auth_session', JSON.stringify(loginData.session));
         await AsyncStorage.setItem('user_profile', JSON.stringify(loginData.user));
 
-        // Store email if remember me is checked
+        // Store credentials if remember me is checked
         if (rememberMe) {
           await AsyncStorage.setItem('remembered_email', email);
         } else {
@@ -135,30 +149,67 @@ const LoginScreen: React.FC = () => {
         <View style={styles.formContainer}>
           <Text style={styles.formTitle}>เข้าสู่ระบบ</Text>
           
+          {/* Login Type Selection */}
+          <View style={styles.loginTypeContainer}>
+            <TouchableOpacity
+              style={[
+                styles.loginTypeButton,
+                loginType === 'student' && styles.loginTypeButtonActive
+              ]}
+              onPress={() => setLoginType('student')}
+            >
+              <Text style={[
+                styles.loginTypeText,
+                loginType === 'student' && styles.loginTypeTextActive
+              ]}>
+                นักเรียน
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.loginTypeButton,
+                loginType === 'email' && styles.loginTypeButtonActive
+              ]}
+              onPress={() => setLoginType('email')}
+            >
+              <Text style={[
+                styles.loginTypeText,
+                loginType === 'email' && styles.loginTypeTextActive
+              ]}>
+                อีเมล
+              </Text>
+            </TouchableOpacity>
+          </View>
+          
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>อีเมล</Text>
+            <Text style={styles.label}>
+              {loginType === 'student' ? 'รหัสนักศึกษา' : 'อีเมล'}
+            </Text>
             <TextInput
               style={styles.input}
-              placeholder="กรอกอีเมลของคุณ"
+              placeholder={loginType === 'student' ? 'กรอกรหัสนักศึกษา' : 'กรอกอีเมลของคุณ'}
               placeholderTextColor="#999"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
-              keyboardType="email-address"
-              autoComplete="email"
+              keyboardType={loginType === 'student' ? 'numeric' : 'email-address'}
+              autoComplete={loginType === 'student' ? 'username' : 'email'}
             />
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>รหัสผ่าน</Text>
+            <Text style={styles.label}>
+              {loginType === 'student' ? 'รหัสบัตรประชาชน' : 'รหัสผ่าน'}
+            </Text>
             <TextInput
               style={styles.input}
-              placeholder="กรอกรหัสผ่าน"
+              placeholder={loginType === 'student' ? 'กรอกรหัสบัตรประชาชน 13 หลัก' : 'กรอกรหัสผ่าน'}
               placeholderTextColor="#999"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoComplete="password"
+              maxLength={loginType === 'student' ? 13 : undefined}
             />
           </View>
 
@@ -289,6 +340,31 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 24,
     textAlign: 'center',
+  },
+  loginTypeContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 4,
+    marginBottom: 20,
+  },
+  loginTypeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  loginTypeButtonActive: {
+    backgroundColor: '#007bff',
+  },
+  loginTypeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  loginTypeTextActive: {
+    color: '#fff',
   },
   inputContainer: {
     marginBottom: 20,

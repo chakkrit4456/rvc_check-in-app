@@ -62,51 +62,43 @@ const AppNavigator = () => {
           },
         }}
       >
-        {isAuthenticated ? (
-          // Authenticated screens
-          <>
-            <Stack.Screen 
-              name="Dashboard" 
-              component={DashboardScreen}
-              options={{ title: 'หน้าหลัก' }}
-            />
-            <Stack.Screen 
-              name="Checkin" 
-              component={CheckinScreen}
-              options={{ title: 'เช็คชื่อกิจกรรม' }}
-            />
-            <Stack.Screen 
-              name="News" 
-              component={NewsScreen}
-              options={{ title: 'ข่าวสาร' }}
-            />
-            <Stack.Screen 
-              name="Profile" 
-              component={ProfileScreen}
-              options={{ title: 'โปรไฟล์' }}
-            />
-          </>
-        ) : (
-          // Unauthenticated screens
-          <>
-            <Stack.Screen 
-              name="Login" 
-              component={LoginScreen}
-              options={{ 
-                title: 'เข้าสู่ระบบ',
-                headerShown: false // Hide header for login screen
-              }}
-            />
-            <Stack.Screen 
-              name="Register" 
-              component={RegisterScreen}
-              options={{ 
-                title: 'ลงทะเบียน',
-                headerShown: false // Hide header for register screen
-              }}
-            />
-          </>
-        )}
+        {/* Always include all screens */}
+        <Stack.Screen 
+          name="Login" 
+          component={LoginScreen}
+          options={{ 
+            title: 'เข้าสู่ระบบ',
+            headerShown: false // Hide header for login screen
+          }}
+        />
+        <Stack.Screen 
+          name="Register" 
+          component={RegisterScreen}
+          options={{ 
+            title: 'ลงทะเบียน',
+            headerShown: false // Hide header for register screen
+          }}
+        />
+        <Stack.Screen 
+          name="Dashboard" 
+          component={DashboardScreen}
+          options={{ title: 'หน้าหลัก' }}
+        />
+        <Stack.Screen 
+          name="Checkin" 
+          component={CheckinScreen}
+          options={{ title: 'เช็คชื่อกิจกรรม' }}
+        />
+        <Stack.Screen 
+          name="News" 
+          component={NewsScreen}
+          options={{ title: 'ข่าวสาร' }}
+        />
+        <Stack.Screen 
+          name="Profile" 
+          component={ProfileScreen}
+          options={{ title: 'โปรไฟล์' }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

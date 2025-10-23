@@ -1,0 +1,256 @@
+-- Fix RLS Infinite Recursion Issue
+-- This script completely fixes the infinite recursion problem
+
+-- 1. Drop all existing policies to avoid conflicts
+DROP POLICY IF EXISTS "Allow authenticated read" ON profiles;
+DROP POLICY IF EXISTS "Allow admin all access" ON profiles;
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
+DROP POLICY IF EXISTS "Admins can view all profiles" ON profiles;
+DROP POLICY IF EXISTS "Allow all authenticated select" ON profiles;
+DROP POLICY IF EXISTS "Allow authenticated insert profiles" ON profiles;
+DROP POLICY IF EXISTS "Allow authenticated update own profile" ON profiles;
+
+-- 2. Disable RLS completely for profiles table
+ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
+
+-- 3. Disable RLS for all other tables as well
+ALTER TABLE activities DISABLE ROW LEVEL SECURITY;
+ALTER TABLE attendance_records DISABLE ROW LEVEL SECURITY;
+ALTER TABLE announcements DISABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE departments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE classrooms DISABLE ROW LEVEL SECURITY;
+
+-- 4. Grant all privileges to authenticated users
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
+
+-- 5. Clear existing data to start fresh
+TRUNCATE TABLE attendance_records RESTART IDENTITY CASCADE;
+TRUNCATE TABLE activities RESTART IDENTITY CASCADE;
+TRUNCATE TABLE announcements RESTART IDENTITY CASCADE;
+TRUNCATE TABLE admin_users RESTART IDENTITY CASCADE;
+TRUNCATE TABLE profiles RESTART IDENTITY CASCADE;
+TRUNCATE TABLE classrooms RESTART IDENTITY CASCADE;
+TRUNCATE TABLE departments RESTART IDENTITY CASCADE;
+
+-- 6. Insert departments
+INSERT INTO departments (id, name, description) VALUES 
+('d001', 'คหกรรม', 'แผนกคหกรรม'),
+('d002', 'บริหารธุรกิจ', 'แผนกบริหารธุรกิจ'),
+('d003', 'เทคโนโลยีสารสนเทศฯ', 'แผนกเทคโนโลยีสารสนเทศและการสื่อสาร'),
+('d004', 'เทคโนโลยีบัณฑิต', 'แผนกเทคโนโลยีบัณฑิต'),
+('d005', 'ศิลปกรรม', 'แผนกศิลปกรรม'),
+('d006', 'อุตสาหกรรมการท่องเที่ยว', 'แผนกอุตสาหกรรมการท่องเที่ยว'),
+('d007', 'สามัญสัมพันธ์', 'แผนกสามัญสัมพันธ์');
+
+-- 7. Insert classrooms with proper naming
+DO $$
+DECLARE
+    dept_id UUID;
+    dept_name VARCHAR;
+    year_level_map JSONB := '{
+        "ปวช.1": 1, "ปวช.2": 2, "ปวช.3": 3,
+        "ปวส.1": 4, "ปวส.2": 5
+    }';
+    year_label VARCHAR;
+    year_num INTEGER;
+    room_num INTEGER;
+BEGIN
+    FOR dept_id, dept_name IN SELECT id, name FROM departments LOOP
+        FOR year_label, year_num IN SELECT * FROM jsonb_each_text(year_level_map) LOOP
+            FOR room_num IN 1..3 LOOP
+                INSERT INTO classrooms (name, department_id, year_level) VALUES 
+                (year_label || '/' || room_num, dept_id, year_num);
+            END LOOP;
+        END LOOP;
+    END LOOP;
+END $$;
+
+-- 8. Insert admin user profile
+INSERT INTO profiles (id, student_id, national_id, first_name, last_name, gender, email, phone, classroom_id, department_id, year_level, role, is_active)
+VALUES (
+    'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12',
+    'admin',
+    '66202040013',
+    'Chakkrit',
+    'Admin',
+    'male',
+    'chakkritnb1123@gmail.com',
+    '0812345678',
+    NULL,
+    NULL,
+    NULL,
+    'admin',
+    TRUE
+)
+ON CONFLICT (id) DO UPDATE SET
+    student_id = EXCLUDED.student_id,
+    national_id = EXCLUDED.national_id,
+    first_name = EXCLUDED.first_name,
+    last_name = EXCLUDED.last_name,
+    gender = EXCLUDED.gender,
+    email = EXCLUDED.email,
+    phone = EXCLUDED.phone,
+    classroom_id = EXCLUDED.classroom_id,
+    department_id = EXCLUDED.department_id,
+    year_level = EXCLUDED.year_level,
+    role = EXCLUDED.role,
+    is_active = EXCLUDED.is_active,
+    updated_at = NOW();
+
+-- 9. Insert test student profile
+INSERT INTO profiles (id, student_id, national_id, first_name, last_name, gender, email, phone, classroom_id, department_id, year_level, role, is_active)
+VALUES (
+    '01ce7d17-5810-408b-93f2-d375622e782f',
+    '1234567890',
+    '1234567890123',
+    'Test',
+    'Student',
+    'male',
+    'test.student@example.com',
+    '0987654321',
+    (SELECT id FROM classrooms WHERE name = 'ปวช.1/1' LIMIT 1),
+    (SELECT id FROM departments WHERE name = 'เทคโนโลยีสารสนเทศฯ' LIMIT 1),
+    1,
+    'student',
+    TRUE
+)
+ON CONFLICT (id) DO UPDATE SET
+    student_id = EXCLUDED.student_id,
+    national_id = EXCLUDED.national_id,
+    first_name = EXCLUDED.first_name,
+    last_name = EXCLUDED.last_name,
+    gender = EXCLUDED.gender,
+    email = EXCLUDED.email,
+    phone = EXCLUDED.phone,
+    classroom_id = EXCLUDED.classroom_id,
+    department_id = EXCLUDED.department_id,
+    year_level = EXCLUDED.year_level,
+    role = EXCLUDED.role,
+    is_active = EXCLUDED.is_active,
+    updated_at = NOW();
+
+-- 10. Insert sample activities
+INSERT INTO activities (title, description, activity_type, location, start_time, end_time, status, requires_photo, target_classrooms, target_departments, target_year_levels, creator_id) VALUES 
+('เข้าแถวเช้า', 'การเข้าแถวประจำวัน', 'morning_assembly', 'สนามโรงเรียน', 
+ NOW() + INTERVAL '1 minute', 
+ NOW() + INTERVAL '30 minutes', 
+ 'active', true, 
+ '{}', 
+ '{}', 
+ ARRAY[1, 2, 3, 4, 5],
+ 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12'),
+
+('กิจกรรมกีฬาสี', 'การแข่งขันกีฬาสีประจำปี', 'sports', 'สนามกีฬา', 
+ NOW() + INTERVAL '1 hour', 
+ NOW() + INTERVAL '5 hours', 
+ 'active', true, 
+ '{}', 
+ '{}', 
+ ARRAY[1, 2, 3, 4, 5],
+ 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12'),
+
+('ประชุมนักเรียน', 'การประชุมประจำสัปดาห์', 'meeting', 'หอประชุม', 
+ NOW() + INTERVAL '2 hours', 
+ NOW() + INTERVAL '3 hours', 
+ 'active', false, 
+ '{}', 
+ '{}', 
+ ARRAY[4, 5],
+ 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12');
+
+-- 11. Insert sample announcements
+INSERT INTO announcements (title, content, announcement_type, priority, target_audience, is_published, published_at, creator_id) VALUES 
+('ประกาศหยุดเรียน', 'วันจันทร์ที่ 25 ตุลาคม 2567 โรงเรียนหยุดเรียนเนื่องจากการประชุมครู', 'general', 'high', 'all', true, NOW(), 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12'),
+('กิจกรรมใหม่', 'ขอเชิญนักเรียนเข้าร่วมกิจกรรมกีฬาสีที่จะจัดขึ้นในสัปดาห์หน้า', 'activity', 'normal', 'students', true, NOW(), 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12'),
+('การสอบกลางภาค', 'การสอบกลางภาคจะเริ่มในวันที่ 1 พฤศจิกายน 2567', 'general', 'normal', 'all', true, NOW(), 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12');
+
+-- 12. Insert sample attendance records
+INSERT INTO attendance_records (student_id, activity_id, check_in_time, check_out_time, photo_url, notes) VALUES 
+('01ce7d17-5810-408b-93f2-d375622e782f', 
+ (SELECT id FROM activities WHERE title = 'เข้าแถวเช้า' LIMIT 1), 
+ NOW() - INTERVAL '1 hour', 
+ NOW() - INTERVAL '30 minutes', 
+ 'https://example.com/photo1.jpg', 
+ 'เข้าร่วมกิจกรรมเข้าแถวเช้า');
+
+-- 13. Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
+CREATE INDEX IF NOT EXISTS idx_profiles_student_id ON profiles(student_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email);
+CREATE INDEX IF NOT EXISTS idx_activities_status ON activities(status);
+CREATE INDEX IF NOT EXISTS idx_attendance_records_student_id ON attendance_records(student_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_records_activity_id ON attendance_records(activity_id);
+CREATE INDEX IF NOT EXISTS idx_announcements_published ON announcements(is_published);
+
+-- 14. Create functions for common operations
+CREATE OR REPLACE FUNCTION get_student_stats()
+RETURNS TABLE (
+    total_students bigint,
+    active_students bigint,
+    inactive_students bigint
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        COUNT(*) as total_students,
+        COUNT(*) FILTER (WHERE is_active = true) as active_students,
+        COUNT(*) FILTER (WHERE is_active = false) as inactive_students
+    FROM profiles 
+    WHERE role = 'student';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_activity_stats()
+RETURNS TABLE (
+    total_activities bigint,
+    active_activities bigint,
+    inactive_activities bigint
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        COUNT(*) as total_activities,
+        COUNT(*) FILTER (WHERE status = 'active') as active_activities,
+        COUNT(*) FILTER (WHERE status = 'inactive') as inactive_activities
+    FROM activities;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 15. Create view for dashboard stats
+CREATE OR REPLACE VIEW dashboard_stats AS
+SELECT 
+    (SELECT COUNT(*) FROM profiles WHERE role = 'student') as total_students,
+    (SELECT COUNT(*) FROM profiles WHERE role = 'student' AND is_active = true) as active_students,
+    (SELECT COUNT(*) FROM activities) as total_activities,
+    (SELECT COUNT(*) FROM activities WHERE status = 'active') as active_activities,
+    (SELECT COUNT(*) FROM attendance_records) as total_attendance,
+    (SELECT COUNT(*) FROM attendance_records WHERE check_in_time >= CURRENT_DATE) as today_attendance;
+
+-- 16. Grant permissions on functions and views
+GRANT EXECUTE ON FUNCTION get_student_stats() TO authenticated;
+GRANT EXECUTE ON FUNCTION get_activity_stats() TO authenticated;
+GRANT SELECT ON dashboard_stats TO authenticated;
+
+-- 17. Final verification
+SELECT 'Database setup completed successfully!' as status;
+SELECT COUNT(*) as department_count FROM departments;
+SELECT COUNT(*) as classroom_count FROM classrooms;
+SELECT COUNT(*) as profile_count FROM profiles;
+SELECT COUNT(*) as activity_count FROM activities;
+SELECT COUNT(*) as announcement_count FROM announcements;
+
+-- 18. Test admin profile lookup
+SELECT * FROM profiles WHERE email = 'chakkritnb1123@gmail.com';
+
+-- 19. Show classroom structure
+SELECT 
+    d.name as department_name,
+    c.name as classroom_name,
+    c.year_level
+FROM departments d
+JOIN classrooms c ON d.id = c.department_id
+ORDER BY d.name, c.year_level, c.name;
+

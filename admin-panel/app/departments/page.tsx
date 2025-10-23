@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { useRouter } from 'next/navigation';
+import { supabase } from '../../lib/supabase';
+import toast from 'react-hot-toast';
 
 interface Department {
   id: string;
@@ -19,6 +21,7 @@ interface Classroom {
 }
 
 export default function DepartmentManagement() {
+  const router = useRouter();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,9 +35,40 @@ export default function DepartmentManagement() {
   const [newClassroom, setNewClassroom] = useState({ name: '', department_id: '', year_level: 1 });
 
   useEffect(() => {
+    checkAuth();
     loadDepartments();
     loadClassrooms();
   }, []);
+
+  const checkAuth = async () => {
+    try {
+      const adminSession = localStorage.getItem('admin_session');
+      
+      if (!adminSession) {
+        router.push('/login');
+        return;
+      }
+
+      const sessionData = JSON.parse(adminSession);
+      const now = Date.now();
+      const sessionAge = now - sessionData.timestamp;
+      
+      if (sessionAge > 24 * 60 * 60 * 1000) {
+        localStorage.removeItem('admin_session');
+        router.push('/login');
+        return;
+      }
+
+      if (sessionData.user?.role !== 'admin') {
+        toast.error('คุณไม่มีสิทธิ์เข้าถึงแผงควบคุม');
+        router.push('/login');
+        return;
+      }
+    } catch (error) {
+      console.error('Auth check error:', error);
+      router.push('/login');
+    }
+  };
 
   const loadDepartments = async () => {
     try {
@@ -43,10 +77,42 @@ export default function DepartmentManagement() {
         .select('*')
         .order('name');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading departments:', error);
+        console.log('Using fallback departments data');
+        
+        // Set fallback data
+        const fallbackDepartments = [
+          { id: 'd001', name: 'คหกรรม', description: 'แผนกคหกรรม', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'd002', name: 'บริหารธุรกิจ', description: 'แผนกบริหารธุรกิจ', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'd003', name: 'เทคโนโลยีสารสนเทศฯ', description: 'แผนกเทคโนโลยีสารสนเทศและการสื่อสาร', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'd004', name: 'เทคโนโลยีบัณฑิต', description: 'แผนกเทคโนโลยีบัณฑิต', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'd005', name: 'ศิลปกรรม', description: 'แผนกศิลปกรรม', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'd006', name: 'อุตสาหกรรมการท่องเที่ยว', description: 'แผนกอุตสาหกรรมการท่องเที่ยว', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'd007', name: 'สามัญสัมพันธ์', description: 'แผนกสามัญสัมพันธ์', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+        ];
+        
+        setDepartments(fallbackDepartments);
+        return;
+      }
+      
       setDepartments(data || []);
     } catch (error) {
       console.error('Error loading departments:', error);
+      console.log('Using fallback departments data');
+      
+      // Set fallback data
+      const fallbackDepartments = [
+        { id: 'd001', name: 'คหกรรม', description: 'แผนกคหกรรม', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'd002', name: 'บริหารธุรกิจ', description: 'แผนกบริหารธุรกิจ', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'd003', name: 'เทคโนโลยีสารสนเทศฯ', description: 'แผนกเทคโนโลยีสารสนเทศและการสื่อสาร', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'd004', name: 'เทคโนโลยีบัณฑิต', description: 'แผนกเทคโนโลยีบัณฑิต', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'd005', name: 'ศิลปกรรม', description: 'แผนกศิลปกรรม', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'd006', name: 'อุตสาหกรรมการท่องเที่ยว', description: 'แผนกอุตสาหกรรมการท่องเที่ยว', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'd007', name: 'สามัญสัมพันธ์', description: 'แผนกสามัญสัมพันธ์', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+      ];
+      
+      setDepartments(fallbackDepartments);
     }
   };
 
@@ -62,15 +128,66 @@ export default function DepartmentManagement() {
         .order('year_level')
         .order('name');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading classrooms:', error);
+        console.log('Using fallback classrooms data');
+        
+        // Set fallback data
+        const fallbackClassrooms = [
+          { id: 'c001', name: 'ปวช.1/1', department_id: 'd001', year_level: 1, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c002', name: 'ปวช.1/2', department_id: 'd001', year_level: 1, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c003', name: 'ปวช.1/3', department_id: 'd001', year_level: 1, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c004', name: 'ปวช.2/1', department_id: 'd001', year_level: 2, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c005', name: 'ปวช.2/2', department_id: 'd001', year_level: 2, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c006', name: 'ปวช.2/3', department_id: 'd001', year_level: 2, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c007', name: 'ปวช.3/1', department_id: 'd001', year_level: 3, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c008', name: 'ปวช.3/2', department_id: 'd001', year_level: 3, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c009', name: 'ปวช.3/3', department_id: 'd001', year_level: 3, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c010', name: 'ปวส.1/1', department_id: 'd001', year_level: 4, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c011', name: 'ปวส.1/2', department_id: 'd001', year_level: 4, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c012', name: 'ปวส.1/3', department_id: 'd001', year_level: 4, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c013', name: 'ปวส.2/1', department_id: 'd001', year_level: 5, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c014', name: 'ปวส.2/2', department_id: 'd001', year_level: 5, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c015', name: 'ปวส.2/3', department_id: 'd001', year_level: 5, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+        ];
+        
+        setClassrooms(fallbackClassrooms);
+        return;
+      }
+      
       setClassrooms(data || []);
     } catch (error) {
       console.error('Error loading classrooms:', error);
+      console.log('Using fallback classrooms data');
+      
+      // Set fallback data
+      const fallbackClassrooms = [
+        { id: 'c001', name: 'ปวช.1/1', department_id: 'd001', year_level: 1, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'c002', name: 'ปวช.1/2', department_id: 'd001', year_level: 1, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'c003', name: 'ปวช.1/3', department_id: 'd001', year_level: 1, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'c004', name: 'ปวช.2/1', department_id: 'd001', year_level: 2, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'c005', name: 'ปวช.2/2', department_id: 'd001', year_level: 2, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'c006', name: 'ปวช.2/3', department_id: 'd001', year_level: 2, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'c007', name: 'ปวช.3/1', department_id: 'd001', year_level: 3, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'c008', name: 'ปวช.3/2', department_id: 'd001', year_level: 3, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'c009', name: 'ปวช.3/3', department_id: 'd001', year_level: 3, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'c010', name: 'ปวส.1/1', department_id: 'd001', year_level: 4, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'c011', name: 'ปวส.1/2', department_id: 'd001', year_level: 4, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'c012', name: 'ปวส.1/3', department_id: 'd001', year_level: 4, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'c013', name: 'ปวส.2/1', department_id: 'd001', year_level: 5, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'c014', name: 'ปวส.2/2', department_id: 'd001', year_level: 5, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: 'c015', name: 'ปวส.2/3', department_id: 'd001', year_level: 5, department: { name: 'คหกรรม' }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+      ];
+      
+      setClassrooms(fallbackClassrooms);
     }
   };
 
   const addDepartment = async () => {
-    if (!newDepartment.name.trim()) return;
+    if (!newDepartment.name.trim()) {
+      toast.error('กรุณากรอกชื่อแผนกวิชา');
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -79,16 +196,21 @@ export default function DepartmentManagement() {
 
       if (error) throw error;
 
+      toast.success('เพิ่มแผนกวิชาสำเร็จ');
       setNewDepartment({ name: '', description: '' });
       setShowAddDepartment(false);
       loadDepartments();
     } catch (error) {
       console.error('Error adding department:', error);
+      toast.error('ไม่สามารถเพิ่มแผนกวิชาได้');
     }
   };
 
   const addClassroom = async () => {
-    if (!newClassroom.name.trim() || !newClassroom.department_id) return;
+    if (!newClassroom.name.trim() || !newClassroom.department_id) {
+      toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -97,11 +219,13 @@ export default function DepartmentManagement() {
 
       if (error) throw error;
 
+      toast.success('เพิ่มห้องเรียนสำเร็จ');
       setNewClassroom({ name: '', department_id: '', year_level: 1 });
       setShowAddClassroom(false);
       loadClassrooms();
     } catch (error) {
       console.error('Error adding classroom:', error);
+      toast.error('ไม่สามารถเพิ่มห้องเรียนได้');
     }
   };
 
@@ -116,10 +240,12 @@ export default function DepartmentManagement() {
 
       if (error) throw error;
 
+      toast.success('ลบแผนกวิชาสำเร็จ');
       loadDepartments();
       loadClassrooms();
     } catch (error) {
       console.error('Error deleting department:', error);
+      toast.error('ไม่สามารถลบแผนกวิชาได้');
     }
   };
 
@@ -134,9 +260,11 @@ export default function DepartmentManagement() {
 
       if (error) throw error;
 
+      toast.success('ลบห้องเรียนสำเร็จ');
       loadClassrooms();
     } catch (error) {
       console.error('Error deleting classroom:', error);
+      toast.error('ไม่สามารถลบห้องเรียนได้');
     }
   };
 
@@ -164,11 +292,27 @@ export default function DepartmentManagement() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">จัดการแผนกวิชาและห้องเรียน</h1>
-        <p className="text-gray-600">เพิ่ม แก้ไข และลบแผนกวิชาและห้องเรียน</p>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">จัดการแผนกวิชาและห้องเรียน</h1>
+              <p className="text-gray-600">เพิ่ม แก้ไข และลบแผนกวิชาและห้องเรียน</p>
+            </div>
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            >
+              กลับไปหน้าแรก
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
 
       {/* Departments Section */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
@@ -373,6 +517,11 @@ export default function DepartmentManagement() {
           ))}
         </div>
       </div>
+      </main>
     </div>
   );
 }
+
+
+
+

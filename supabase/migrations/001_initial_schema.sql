@@ -191,4 +191,8 @@ INSERT INTO classrooms (name, department_id, year_level) VALUES
 ('ม.5/1', (SELECT id FROM departments WHERE name = 'เทคโนโลยีสารสนเทศ'), 5),
 ('ม.5/2', (SELECT id FROM departments WHERE name = 'เทคโนโลยีสารสนเทศ'), 5),
 ('ม.6/1', (SELECT id FROM departments WHERE name = 'เทคโนโลยีสารสนเทศ'), 6),
-('ม.6/2', (SELECT id FROM departments WHERE name = 'เทคโนโลยีสารสนเทศ'), 6);
+('ม.6/2', (SELECT id FROM departments WHERE name = 'เทคโนโลยีสารสนเทศ'), 6),
+('1/1', (SELECT id FROM departments WHERE name = 'เทคโนโลยีสารสนเทศ'), 1),
+('1/2', (SELECT id FROM departments WHERE name = 'เทคโนโลยีสารสนเทศ'), 1),
+('1/3', (SELECT id FROM departments WHERE name = 'เทคโนโลยีสารสนเทศ'), 1);
+

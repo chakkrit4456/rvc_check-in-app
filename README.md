@@ -36,7 +36,7 @@
 
 ```
 rvc-app/
-├── mobile-app/                 # React Native App
+├── rvc-app/                 # React Native App
 │   ├── src/
 │   │   ├── screens/           # หน้าจอต่างๆ
 │   │   ├── components/       # คอมโพเนนต์
@@ -59,7 +59,7 @@ rvc-app/
 
 #### Mobile App
 ```bash
-cd mobile-app
+cd rvc-app
 npm install
 # หรือ
 yarn install
@@ -87,7 +87,7 @@ yarn install
 ### 3. รัน Mobile App
 
 ```bash
-cd mobile-app
+cd rvc-app
 npm start
 # หรือ
 yarn start
@@ -247,8 +247,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ## 📞 การสนับสนุน
 
 หากมีปัญหาหรือข้อสงสัย กรุณาติดต่อทีมพัฒนา:
-- Email: support@rvc-school.com
-- Line: @rvc-support
+- Email: chakkritnb1123@gmail.com
+- FACEBOOK: Noah-js
 
 ## 📄 License
 
@@ -257,3 +257,9 @@ MIT License - ดูรายละเอียดในไฟล์ LICENSE
 ---
 
 **หมายเหตุ**: โปรเจคนี้เป็นระบบตัวอย่างสำหรับการจัดการกิจกรรมนักเรียน สามารถปรับแต่งและขยายฟีเจอร์ตามความต้องการของแต่ละสถานศึกษาได้
+
+
+
+
+
+

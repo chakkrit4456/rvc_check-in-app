@@ -260,3 +260,9 @@ export const getFileSize = async (uri: string): Promise<number> => {
     return 0;
   }
 };
+
+
+
+
+
+

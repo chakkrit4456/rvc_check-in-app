@@ -158,6 +158,7 @@ export interface RegisterForm {
   gender: 'male' | 'female' | 'other';
   email: string;
   phone?: string;
+  department_id: string;
   classroom_id: string;
   year_level: number;
   password: string;
