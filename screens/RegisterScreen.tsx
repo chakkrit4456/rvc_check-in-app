@@ -51,6 +51,14 @@ const RegisterScreen: React.FC = () => {
     requestPermissions();
   }, []);
 
+  useEffect(() => {
+    if (formData.department_id && formData.year_level) {
+      loadClassrooms(formData.department_id, formData.year_level);
+    } else {
+      setClassrooms([]);
+    }
+  }, [formData.department_id, formData.year_level]);
+
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -68,17 +76,7 @@ const RegisterScreen: React.FC = () => {
 
       if (error) {
         console.error('Error loading departments:', error);
-        // Set default departments if database fails
-        const defaultDepartments = [
-          { id: 'dept-001', name: 'คหกรรม', description: 'แผนกคหกรรม', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-          { id: 'dept-002', name: 'บริหารธุรกิจ', description: 'แผนกบริหารธุรกิจ', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-          { id: 'dept-003', name: 'เทคโนโลยีสารสนเทศฯ', description: 'แผนกเทคโนโลยีสารสนเทศและการสื่อสาร', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-          { id: 'dept-004', name: 'เทคโนโลยีบัณฑิต', description: 'แผนกเทคโนโลยีบัณฑิต', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-          { id: 'dept-005', name: 'ศิลปกรรม', description: 'แผนกศิลปกรรม', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-          { id: 'dept-006', name: 'อุตสาหกรรมการท่องเที่ยว', description: 'แผนกอุตสาหกรรมการท่องเที่ยว', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-          { id: 'dept-007', name: 'สามัญสัมพันธ์', description: 'แผนกสามัญสัมพันธ์', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
-        ];
-        setDepartments(defaultDepartments);
+        setDepartments([]);
         return;
       }
       
@@ -86,17 +84,7 @@ const RegisterScreen: React.FC = () => {
       setDepartments(data || []);
     } catch (error) {
       console.error('Error loading departments:', error);
-      // Set default departments if network fails
-      const defaultDepartments = [
-        { id: 'dept-001', name: 'คหกรรม', description: 'แผนกคหกรรม', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: 'dept-002', name: 'บริหารธุรกิจ', description: 'แผนกบริหารธุรกิจ', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: 'dept-003', name: 'เทคโนโลยีสารสนเทศฯ', description: 'แผนกเทคโนโลยีสารสนเทศและการสื่อสาร', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: 'dept-004', name: 'เทคโนโลยีบัณฑิต', description: 'แผนกเทคโนโลยีบัณฑิต', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: 'dept-005', name: 'ศิลปกรรม', description: 'แผนกศิลปกรรม', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: 'dept-006', name: 'อุตสาหกรรมการท่องเที่ยว', description: 'แผนกอุตสาหกรรมการท่องเที่ยว', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: 'dept-007', name: 'สามัญสัมพันธ์', description: 'แผนกสามัญสัมพันธ์', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
-      ];
-      setDepartments(defaultDepartments);
+      setDepartments([]);
     }
   };
 
@@ -104,46 +92,30 @@ const RegisterScreen: React.FC = () => {
     try {
       console.log('Loading classrooms for department:', departmentId, 'year:', yearLevel);
       
-      if (!departmentId) {
-        console.log('No department selected');
+      if (!departmentId || !yearLevel) {
+        console.log('Department or year not selected');
         setClassrooms([]);
         return;
       }
 
-      // Generate classroom names based on year level
-      const getYearLabel = (level: number) => {
-        if (level <= 3) return `ปวช.${level}`;
-        if (level === 4) return 'ปวส.1';
-        if (level === 5) return 'ปวส.2';
-        return `ระดับ${level}`;
-      };
+      // Fetch classrooms from the database using the new 'year_level' column
+      const { data, error } = await supabase
+        .from('classrooms')
+        .select('*')
+        .eq('department_id', departmentId)
+        .eq('year_level', yearLevel); // Exact match on the year level number
 
-      const yearLabel = getYearLabel(yearLevel || 1);
-      const standardClassrooms = [
-        { id: 'class-001', name: `${yearLabel}/1`, department_id: departmentId, year_level: yearLevel || 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: 'class-002', name: `${yearLabel}/2`, department_id: departmentId, year_level: yearLevel || 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: 'class-003', name: `${yearLabel}/3`, department_id: departmentId, year_level: yearLevel || 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
-      ];
-      
-      console.log('Using standard classrooms:', standardClassrooms);
-      setClassrooms(standardClassrooms);
+      if (error) {
+        console.error('Error loading classrooms:', error);
+        setClassrooms([]);
+        return;
+      }
+
+      console.log('Classrooms loaded:', data);
+      setClassrooms(data || []);
     } catch (error) {
       console.error('Error loading classrooms:', error);
-      // Set default classrooms if network fails
-      const getYearLabel = (level: number) => {
-        if (level <= 3) return `ปวช.${level}`;
-        if (level === 4) return 'ปวส.1';
-        if (level === 5) return 'ปวส.2';
-        return `ระดับ${level}`;
-      };
-
-      const yearLabel = getYearLabel(yearLevel || 1);
-      const defaultClassrooms = [
-        { id: 'class-001', name: `${yearLabel}/1`, department_id: departmentId, year_level: yearLevel || 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: 'class-002', name: `${yearLabel}/2`, department_id: departmentId, year_level: yearLevel || 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: 'class-003', name: `${yearLabel}/3`, department_id: departmentId, year_level: yearLevel || 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
-      ];
-      setClassrooms(defaultClassrooms);
+      setClassrooms([]);
     }
   };
 
@@ -434,11 +406,6 @@ const RegisterScreen: React.FC = () => {
                 onValueChange={(value) => {
                   console.log('Department changed to:', value);
                   setFormData({ ...formData, department_id: value, classroom_id: '' });
-                  if (value) {
-                    loadClassrooms(value, formData.year_level);
-                  } else {
-                    setClassrooms([]);
-                  }
                 }}
                 style={styles.picker}
               >
@@ -474,9 +441,6 @@ const RegisterScreen: React.FC = () => {
                   onPress={() => {
                     console.log('Year level changed to:', year.value);
                     setFormData({ ...formData, year_level: year.value, classroom_id: '' });
-                    if (formData.department_id) {
-                      loadClassrooms(formData.department_id, year.value);
-                    }
                   }}
                 >
                   <Text style={[

@@ -1,265 +1,183 @@
-# ระบบจัดการการเข้าแถวและกิจกรรมนักเรียน พร้อมแผงควบคุมผู้ดูแล
+# Supabase CLI
 
-## 📋 ภาพรวมโปรเจค
+[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
+](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
 
-ระบบดิจิทัลสำหรับสถานศึกษา เพื่อบริหารจัดการกิจกรรมการเข้าแถวและกิจกรรมภายในวิทยาลัย พร้อมระบบเช็คชื่อผ่านกล้องมือถือแบบ Realtime และแผงควบคุมผู้ดูแล
+[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
 
-## 🚀 ฟีเจอร์หลัก
+This repository contains all the functionality for Supabase CLI.
 
-### 📱 Mobile App (สำหรับนักเรียน)
-- ระบบล็อกอิน/ลงทะเบียนด้วยรหัสนักศึกษาและเลขบัตรประชาชน
-- หน้าหลักแสดงกิจกรรมและประวัติการเข้าร่วม
-- ระบบเช็คชื่อด้วยกล้องถ่ายภาพยืนยัน
-- หน้าข่าวสารและประกาศ
-- จัดการโปรไฟล์ส่วนตัว
+- [x] Running Supabase locally
+- [x] Managing database migrations
+- [x] Creating and deploying Supabase Functions
+- [x] Generating types directly from your database schema
+- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
 
-### 🖥 Admin Panel (สำหรับผู้ดูแล)
-- แผงควบคุมภาพรวมสถิติ
-- จัดการกิจกรรม (เพิ่ม/แก้ไข/ลบ)
-- จัดการนักเรียนและข้อมูล
-- ระบบข่าวสารและประกาศ
-- ดูภาพยืนยันการเข้าร่วม
-- รายงานและสถิติย้อนหลัง
+## Getting started
 
-## 🛠 เทคโนโลยีที่ใช้
+### Install the CLI
 
-| ส่วนระบบ | เทคโนโลยี |
-|---------|----------|
-| Mobile App | React Native (Expo) + TypeScript |
-| Admin Panel | Next.js + React + TypeScript |
-| Backend | Supabase (Auth, Database, Realtime, Storage) |
-| Database | PostgreSQL |
-| Authentication | Supabase Auth |
-| Styling | TailwindCSS |
-
-## 📁 โครงสร้างโปรเจค
-
-```
-rvc-app/
-├── rvc-app/                 # React Native App
-│   ├── src/
-│   │   ├── screens/           # หน้าจอต่างๆ
-│   │   ├── components/       # คอมโพเนนต์
-│   │   ├── navigation/       # ระบบนำทาง
-│   │   ├── services/         # API และ Supabase
-│   │   └── types/           # TypeScript Types
-│   └── App.tsx
-├── admin-panel/               # Next.js Admin Panel
-│   ├── app/                  # App Router
-│   ├── components/           # React Components
-│   ├── lib/                  # Utilities และ Supabase
-│   └── types/               # TypeScript Types
-└── supabase/                 # Database Schema
-    └── migrations/
-```
-
-## 🚀 การติดตั้งและรันโปรเจค
-
-### 1. ติดตั้ง Dependencies
-
-#### Mobile App
-```bash
-cd rvc-app
-npm install
-# หรือ
-yarn install
-```
-
-#### Admin Panel
-```bash
-cd admin-panel
-npm install
-# หรือ
-yarn install
-```
-
-### 2. ตั้งค่า Supabase
-
-1. สร้างโปรเจคใหม่ใน [Supabase](https://supabase.com)
-2. รัน SQL migration จากไฟล์ `supabase/migrations/001_initial_schema.sql`
-3. ตั้งค่า Storage buckets:
-   - `profile-pictures` สำหรับรูปโปรไฟล์
-   - `attendance-photos` สำหรับรูปยืนยันการเข้าร่วม
-4. อัปเดต Supabase URL และ API Key ในไฟล์:
-   - `mobile-app/services/supabaseClient.ts`
-   - `admin-panel/lib/supabase.ts`
-
-### 3. รัน Mobile App
+Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
 
 ```bash
-cd rvc-app
-npm start
-# หรือ
-yarn start
+npm i supabase --save-dev
 ```
 
-จากนั้นเลือกแพลตฟอร์ม:
-- `a` สำหรับ Android
-- `i` สำหรับ iOS
-- `w` สำหรับ Web
-
-### 4. รัน Admin Panel
+To install the beta release channel:
 
 ```bash
-cd admin-panel
-npm run dev
-# หรือ
-yarn dev
+npm i supabase@beta --save-dev
 ```
 
-เปิดเบราว์เซอร์ไปที่ [http://localhost:3000](http://localhost:3000)
+When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
 
-## 📊 ฐานข้อมูล
-
-### ตารางหลัก
-
-- **profiles** - ข้อมูลนักเรียนและผู้ใช้
-- **activities** - รายการกิจกรรม
-- **attendance_records** - บันทึกการเช็คชื่อ
-- **classrooms** - ข้อมูลห้องเรียน
-- **departments** - ข้อมูลแผนก
-- **announcements** - ข่าวสารและประกาศ
-- **admin_users** - บัญชีผู้ดูแลระบบ
-
-### Row Level Security (RLS)
-
-ระบบใช้ RLS เพื่อความปลอดภัย:
-- นักเรียนเห็นเฉพาะข้อมูลของตนเอง
-- แอดมินเห็นข้อมูลทั้งหมด
-- ข้อมูลกิจกรรมเปิดให้ทุกคนที่ล็อกอินแล้ว
-
-## 🔐 การ Authentication
-
-### นักเรียน
-- ล็อกอินด้วยอีเมลและรหัสผ่าน
-- ลงทะเบียนครั้งแรกด้วยรหัสนักศึกษาและเลขบัตรประชาชน
-- บันทึกข้อมูลเพิ่มเติม (ชื่อ, ห้อง, แผนก, ชั้นปี)
-
-### แอดมิน
-- ล็อกอินด้วยบัญชีที่มี role = 'admin'
-- เข้าถึงแผงควบคุมได้เฉพาะผู้ดูแลระบบ
-
-## 📱 ฟีเจอร์ Mobile App
-
-### หน้าหลัก (Dashboard)
-- แสดงสถิติการเข้าร่วม
-- กิจกรรมที่กำลังเปิด
-- ประวัติการเข้าร่วมล่าสุด
-- เมนูหลัก (เช็คชื่อ, ข่าวสาร, โปรไฟล์)
-
-### เช็คชื่อกิจกรรม
-- แสดงรายการกิจกรรมที่เปิดให้เช็คชื่อ
-- ตรวจสอบสิทธิ์การเข้าร่วมตามห้อง/แผนก/ชั้นปี
-- ถ่ายภาพยืนยันด้วยกล้อง (ถ้าจำเป็น)
-- อัปโหลดภาพไป Supabase Storage
-
-### ข่าวสาร
-- แสดงข่าวสารที่เกี่ยวข้องกับผู้ใช้
-- กรองตามห้อง/แผนก/ชั้นปี
-- แสดงระดับความสำคัญและประเภท
-
-### โปรไฟล์
-- ดูและแก้ไขข้อมูลส่วนตัว
-- อัปโหลดรูปโปรไฟล์
-- ออกจากระบบ
-
-## 🖥 ฟีเจอร์ Admin Panel
-
-### แผงควบคุม
-- สถิติภาพรวม (จำนวนนักเรียน, กิจกรรม, การเข้าร่วม)
-- เมนูหลักสำหรับการจัดการ
-
-### จัดการกิจกรรม
-- สร้างกิจกรรมใหม่
-- แก้ไขและลบกิจกรรม
-- ตั้งค่าเป้าหมาย (ห้อง/แผนก/ชั้นปี)
-- เปิด/ปิดการเช็คชื่อ
-
-### จัดการนักเรียน
-- ดูรายชื่อนักเรียนทั้งหมด
-- ค้นหาและกรองข้อมูล
-- แก้ไขข้อมูลนักเรียน
-- ดูประวัติการเข้าร่วม
-
-### ข่าวสาร
-- สร้างข่าวสารใหม่
-- ตั้งค่าเป้าหมายผู้รับ
-- จัดการระดับความสำคัญ
-- เผยแพร่และยกเลิก
-
-### รายงาน
-- สถิติการเข้าร่วมรายวัน/สัปดาห์/เดือน
-- รายงานแยกตามห้อง/แผนก/ชั้นปี
-- ส่งออกเป็น Excel/PDF
-
-## 🔧 การพัฒนา
-
-### Environment Variables
-
-สร้างไฟล์ `.env.local` ในโฟลเดอร์ `admin-panel`:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+NODE_OPTIONS=--no-experimental-fetch yarn add supabase
 ```
 
-### การ Debug
+> **Note**
+For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
 
-#### Mobile App
-- ใช้ React Native Debugger
-- เปิด Developer Menu ด้วยการกด `Cmd+D` (iOS) หรือ `Cmd+M` (Android)
+<details>
+  <summary><b>macOS</b></summary>
 
-#### Admin Panel
-- ใช้ Browser DevTools
-- Next.js มี Hot Reload อัตโนมัติ
+  Available via [Homebrew](https://brew.sh). To install:
 
-## 📝 การใช้งาน
+  ```sh
+  brew install supabase/tap/supabase
+  ```
 
-### สำหรับนักเรียน
-1. ดาวน์โหลดและติดตั้งแอป
-2. ลงทะเบียนด้วยรหัสนักศึกษาและเลขบัตรประชาชน
-3. เข้าสู่ระบบและเช็คชื่อกิจกรรม
-4. ดูข่าวสารและประวัติการเข้าร่วม
+  To install the beta release channel:
+  
+  ```sh
+  brew install supabase/tap/supabase-beta
+  brew link --overwrite supabase-beta
+  ```
+  
+  To upgrade:
 
-### สำหรับแอดมิน
-1. เข้าสู่ระบบผ่านเว็บไซต์
-2. สร้างกิจกรรมและตั้งค่าเป้าหมาย
-3. จัดการนักเรียนและข้อมูล
-4. สร้างข่าวสารและประกาศ
-5. ดูรายงานและสถิติ
+  ```sh
+  brew upgrade supabase
+  ```
+</details>
 
-## 🚨 การแก้ไขปัญหา
+<details>
+  <summary><b>Windows</b></summary>
 
-### ปัญหาที่พบบ่อย
+  Available via [Scoop](https://scoop.sh). To install:
 
-1. **ไม่สามารถเชื่อมต่อ Supabase**
-   - ตรวจสอบ URL และ API Key
-   - ตรวจสอบการตั้งค่า RLS
+  ```powershell
+  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+  scoop install supabase
+  ```
 
-2. **ไม่สามารถถ่ายภาพได้**
-   - ตรวจสอบสิทธิ์การเข้าถึงกล้อง
-   - ตรวจสอบการตั้งค่า Storage
+  To upgrade:
 
-3. **ไม่สามารถล็อกอินได้**
-   - ตรวจสอบข้อมูลผู้ใช้ในฐานข้อมูล
-   - ตรวจสอบการตั้งค่า Auth
+  ```powershell
+  scoop update supabase
+  ```
+</details>
 
-## 📞 การสนับสนุน
+<details>
+  <summary><b>Linux</b></summary>
 
-หากมีปัญหาหรือข้อสงสัย กรุณาติดต่อทีมพัฒนา:
-- Email: chakkritnb1123@gmail.com
-- FACEBOOK: Noah-js
+  Available via [Homebrew](https://brew.sh) and Linux packages.
 
-## 📄 License
+  #### via Homebrew
 
-MIT License - ดูรายละเอียดในไฟล์ LICENSE
+  To install:
 
----
+  ```sh
+  brew install supabase/tap/supabase
+  ```
 
-**หมายเหตุ**: โปรเจคนี้เป็นระบบตัวอย่างสำหรับการจัดการกิจกรรมนักเรียน สามารถปรับแต่งและขยายฟีเจอร์ตามความต้องการของแต่ละสถานศึกษาได้
+  To upgrade:
 
+  ```sh
+  brew upgrade supabase
+  ```
 
+  #### via Linux packages
 
+  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
 
+  ```sh
+  sudo apk add --allow-untrusted <...>.apk
+  ```
 
+  ```sh
+  sudo dpkg -i <...>.deb
+  ```
 
+  ```sh
+  sudo rpm -i <...>.rpm
+  ```
+
+  ```sh
+  sudo pacman -U <...>.pkg.tar.zst
+  ```
+</details>
+
+<details>
+  <summary><b>Other Platforms</b></summary>
+
+  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
+
+  ```sh
+  go install github.com/supabase/cli@latest
+  ```
+
+  Add a symlink to the binary in `$PATH` for easier access:
+
+  ```sh
+  ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
+  ```
+
+  This works on other non-standard Linux distros.
+</details>
+
+<details>
+  <summary><b>Community Maintained Packages</b></summary>
+
+  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
+  To install in your working directory:
+
+  ```bash
+  pkgx install supabase
+  ```
+
+  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
+</details>
+
+### Run the CLI
+
+```bash
+supabase bootstrap
+```
+
+Or using npx:
+
+```bash
+npx supabase bootstrap
+```
+
+The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
+
+## Docs
+
+Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
+
+## Breaking changes
+
+We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
+
+However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
+
+## Developing
+
+To run from source:
+
+```sh
+# Go >= 1.22
+go run . help
+```

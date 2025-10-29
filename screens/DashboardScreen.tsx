@@ -57,7 +57,7 @@ const DashboardScreen: React.FC = () => {
       console.log('Loading dashboard data...');
       
       // Load active activities
-      const { data: activities, error: activitiesError } = await supabase
+      let { data: activities, error: activitiesError } = await supabase
         .from('activities')
         .select(`
           *,
