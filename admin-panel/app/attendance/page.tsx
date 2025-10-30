@@ -81,7 +81,7 @@ export default function AttendancePage() {
       setLoading(true)
       
       let query = supabase
-        .from('attendance_records')
+        .from('attendance')
         .select(`
           *,
           student:profiles(
@@ -212,7 +212,7 @@ export default function AttendancePage() {
 
     try {
       const { error } = await supabase
-        .from('attendance_records')
+        .from('attendance')
         .delete()
         .eq('id', id)
 

@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type Activity = Database['public']['Tables']['activities']['Row']
-type AttendanceRecord = Database['public']['Tables']['attendance_records']['Row']
+type AttendanceRecord = Database['public']['Tables']['attendance']['Row']
 
 export default function DashboardPage() {
   const router = useRouter()

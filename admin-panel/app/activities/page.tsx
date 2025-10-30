@@ -15,7 +15,6 @@ type Activity = {
   end_time: string
   status: string
   requires_photo: boolean
-  target_departments: string[]
   target_year_levels: number[]
   created_at: string
   creator: {
@@ -41,7 +40,6 @@ export default function ActivitiesPage() {
     start_time: '',
     end_time: '',
     requires_photo: false,
-    target_departments: [] as string[],
     target_year_levels: [] as number[]
   })
 
@@ -97,10 +95,6 @@ export default function ActivitiesPage() {
           end_time,
           status,
           requires_photo,
-          target_departments,
-          target_year_levels,
-          created_at,
-          creator_id,
           creator:profiles(first_name, last_name)
         `)
         .order('created_at', { ascending: false })
@@ -121,7 +115,6 @@ export default function ActivitiesPage() {
             end_time: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
             status: 'active',
             requires_photo: true,
-            target_departments: [],
             target_year_levels: [1, 2, 3, 4, 5],
             created_at: new Date().toISOString(),
             creator_id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12',
@@ -137,7 +130,6 @@ export default function ActivitiesPage() {
             end_time: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
             status: 'active',
             requires_photo: true,
-            target_departments: [],
             target_year_levels: [1, 2, 3, 4, 5],
             created_at: new Date().toISOString(),
             creator_id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12',
@@ -166,7 +158,6 @@ export default function ActivitiesPage() {
           end_time: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
           status: 'active',
           requires_photo: true,
-          target_departments: [],
           target_year_levels: [1, 2, 3, 4, 5],
           created_at: new Date().toISOString(),
           creator_id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12',
@@ -182,7 +173,6 @@ export default function ActivitiesPage() {
           end_time: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
           status: 'active',
           requires_photo: true,
-          target_departments: [],
           target_year_levels: [1, 2, 3, 4, 5],
           created_at: new Date().toISOString(),
           creator_id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12',
@@ -287,7 +277,6 @@ export default function ActivitiesPage() {
         start_time: '',
         end_time: '',
         requires_photo: false,
-        target_departments: [],
         target_year_levels: []
       })
       
@@ -339,7 +328,6 @@ export default function ActivitiesPage() {
       start_time: activity.start_time.split('T')[0] + 'T' + activity.start_time.split('T')[1].substring(0, 5),
       end_time: activity.end_time.split('T')[0] + 'T' + activity.end_time.split('T')[1].substring(0, 5),
       requires_photo: activity.requires_photo,
-      target_departments: activity.target_departments,
       target_year_levels: activity.target_year_levels
     })
     setShowCreateForm(true)
@@ -528,7 +516,6 @@ export default function ActivitiesPage() {
                       start_time: '',
                       end_time: '',
                       requires_photo: false,
-                      target_departments: [],
                       target_year_levels: []
                     })
                   }}

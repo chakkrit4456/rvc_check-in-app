@@ -106,7 +106,7 @@ export default function AnalyticsPage() {
         .eq('status', 'active')
 
       const { count: totalAttendance } = await supabase
-        .from('attendance_records')
+        .from('attendance')
         .select('*', { count: 'exact', head: true })
 
       const today = new Date().toISOString().split('T')[0]
