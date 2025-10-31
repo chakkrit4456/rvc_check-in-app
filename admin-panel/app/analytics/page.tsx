@@ -83,183 +83,122 @@ export default function AnalyticsPage() {
   const loadAnalyticsData = async () => {
     try {
       setLoading(true)
-      
-      // Get basic stats
-      const { count: totalStudents } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('role', 'student')
 
-      const { count: activeStudents } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('role', 'student')
-        .eq('is_active', true)
+      const [
+        { count: totalStudents },
+        { count: activeStudents },
+        { data: activitiesData, error: activitiesError },
+        { data: attendanceData, error: attendanceError },
+        { data: departmentsData, error: departmentsError },
+        { data: classroomsData, error: classroomsError },
+        { data: profilesData, error: profilesError }
+      ] = await Promise.all([
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student'),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student').eq('is_active', true),
+        supabase.from('activities').select('*'),
+        supabase.from('attendance_records').select('*').gte('check_in_time', `${dateRange.start}T00:00:00`).lte('check_in_time', `${dateRange.end}T23:59:59`),
+        supabase.from('departments').select('*'),
+        supabase.from('classrooms').select('id, name, department_id'),
+        supabase.from('profiles').select('id, department_id, classroom_id').eq('role', 'student')
+      ])
 
-      const { count: totalActivities } = await supabase
-        .from('activities')
-        .select('*', { count: 'exact', head: true })
-
-      const { count: activeActivities } = await supabase
-        .from('activities')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active')
-
-      const { count: totalAttendance } = await supabase
-        .from('attendance')
-        .select('*', { count: 'exact', head: true })
+      if (activitiesError || attendanceError || departmentsError || classroomsError || profilesError) {
+        throw new Error('Failed to load data')
+      }
 
       const today = new Date().toISOString().split('T')[0]
-      const { count: todayAttendance } = await supabase
-        .from('attendance_records')
-        .select('*', { count: 'exact', head: true })
-        .gte('check_in_time', `${today}T00:00:00`)
-        .lte('check_in_time', `${today}T23:59:59`)
+      const todayAttendance = attendanceData?.filter(r => r.check_in_time.startsWith(today)).length || 0
 
-      // Get department stats
-      const { data: departmentStats } = await supabase
-        .from('profiles')
-        .select(`
-          department:departments(name),
-          attendance_records(count)
-        `)
-        .eq('role', 'student')
+      const studentDeptMap = new Map(profilesData?.map(p => [p.id, p.department_id]))
+      const studentClassroomMap = new Map(profilesData?.map(p => [p.id, p.classroom_id]))
 
-      // Get classroom stats
-      const { data: classroomStats } = await supabase
-        .from('profiles')
-        .select(`
-          classroom:classrooms(name),
-          department:departments(name),
-          attendance_records(count)
-        `)
-        .eq('role', 'student')
+      const departmentStats = departmentsData?.map(dept => {
+        const studentsInDept = profilesData?.filter(p => p.department_id === dept.id).length || 0
+        const attendanceInDept = attendanceData?.filter(a => studentDeptMap.get(a.student_id) === dept.id).length || 0
+        return {
+          department_name: dept.name,
+          student_count: studentsInDept,
+          attendance_count: attendanceInDept,
+          attendance_rate: studentsInDept > 0 ? (attendanceInDept / studentsInDept) * 100 : 0
+        }
+      }) || []
 
-      // Get activity stats
-      const { data: activityStats } = await supabase
-        .from('activities')
-        .select(`
-          title,
-          attendance_records(count)
-        `)
+      const classroomStats = classroomsData?.map(classroom => {
+        const studentsInClassroom = profilesData?.filter(p => p.classroom_id === classroom.id).length || 0
+        const attendanceInClassroom = attendanceData?.filter(a => studentClassroomMap.get(a.student_id) === classroom.id).length || 0
+        const department = departmentsData?.find(d => d.id === classroom.department_id)
+        return {
+          classroom_name: classroom.name,
+          department_name: department?.name || 'ไม่ระบุ',
+          student_count: studentsInClassroom,
+          attendance_count: attendanceInClassroom,
+          attendance_rate: studentsInClassroom > 0 ? (attendanceInClassroom / studentsInClassroom) * 100 : 0
+        }
+      }) || []
 
-      // Get daily attendance
-      const { data: dailyAttendance } = await supabase
-        .from('attendance_records')
-        .select('check_in_time')
-        .gte('check_in_time', `${dateRange.start}T00:00:00`)
-        .lte('check_in_time', `${dateRange.end}T23:59:59`)
+      const activityStats = activitiesData?.map(activity => {
+        const attendanceForActivity = attendanceData?.filter(a => a.activity_id === activity.id) || []
+        const uniqueStudents = new Set(attendanceForActivity.map(a => a.student_id)).size
+        return {
+          activity_title: activity.title,
+          attendance_count: attendanceForActivity.length,
+          unique_students: uniqueStudents
+        }
+      }) || []
+
+      const dailyAttendance = attendanceData?.reduce((acc, record) => {
+        const date = record.check_in_time.split('T')[0]
+        const existing = acc.find(d => d.date === date)
+        if (existing) {
+          existing.attendance_count++
+        } else {
+          acc.push({ date, attendance_count: 1 })
+        }
+        return acc
+      }, [] as { date: string, attendance_count: number }[]) || []
+
 
       const analytics: AnalyticsData = {
         totalStudents: totalStudents || 0,
         activeStudents: activeStudents || 0,
-        totalActivities: totalActivities || 0,
-        activeActivities: activeActivities || 0,
-        totalAttendance: totalAttendance || 0,
-        todayAttendance: todayAttendance || 0,
-        attendanceRate: totalStudents ? ((totalAttendance || 0) / totalStudents) * 100 : 0,
-        departmentStats: departmentStats?.map(dept => ({
-          department_name: dept.department?.name || 'ไม่ระบุ',
-          student_count: 1,
-          attendance_count: dept.attendance_records?.length || 0,
-          attendance_rate: 0
-        })) || [],
-        classroomStats: classroomStats?.map(classroom => ({
-          classroom_name: classroom.classroom?.name || 'ไม่ระบุ',
-          department_name: classroom.department?.name || 'ไม่ระบุ',
-          student_count: 1,
-          attendance_count: classroom.attendance_records?.length || 0,
-          attendance_rate: 0
-        })) || [],
-        activityStats: activityStats?.map(activity => ({
-          activity_title: activity.title,
-          attendance_count: activity.attendance_records?.length || 0,
-          unique_students: activity.attendance_records?.length || 0
-        })) || [],
-        dailyAttendance: dailyAttendance?.map(record => ({
-          date: new Date(record.check_in_time).toISOString().split('T')[0],
-          attendance_count: 1
-        })) || []
+        totalActivities: activitiesData?.length || 0,
+        activeActivities: activitiesData?.filter(a => a.status === 'active').length || 0,
+        totalAttendance: attendanceData?.length || 0,
+        todayAttendance: todayAttendance,
+        attendanceRate: totalStudents && attendanceData ? (attendanceData.length / totalStudents) * 100 : 0,
+        departmentStats,
+        classroomStats,
+        activityStats,
+        dailyAttendance,
       }
 
       setAnalyticsData(analytics)
     } catch (error) {
       console.error('Error loading analytics data:', error)
+      toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูลวิเคราะห์')
+      // Using fallback data as a recovery mechanism
       console.log('Using fallback analytics data')
-      
-      // Set fallback data
       const fallbackAnalytics: AnalyticsData = {
-        totalStudents: 3,
-        activeStudents: 3,
-        totalActivities: 3,
-        activeActivities: 2,
-        totalAttendance: 5,
-        todayAttendance: 2,
-        attendanceRate: 66.67,
+        totalStudents: 3, activeStudents: 3, totalActivities: 3, activeActivities: 2, totalAttendance: 5, todayAttendance: 2, attendanceRate: 66.67,
         departmentStats: [
-          {
-            department_name: 'เทคโนโลยีสารสนเทศฯ',
-            student_count: 1,
-            attendance_count: 2,
-            attendance_rate: 100
-          },
-          {
-            department_name: 'คหกรรม',
-            student_count: 1,
-            attendance_count: 1,
-            attendance_rate: 50
-          },
-          {
-            department_name: 'บริหารธุรกิจ',
-            student_count: 1,
-            attendance_count: 2,
-            attendance_rate: 100
-          }
+          { department_name: 'เทคโนโลยีสารสนเทศฯ', student_count: 1, attendance_count: 2, attendance_rate: 100 },
+          { department_name: 'คหกรรม', student_count: 1, attendance_count: 1, attendance_rate: 50 },
+          { department_name: 'บริหารธุรกิจ', student_count: 1, attendance_count: 2, attendance_rate: 100 }
         ],
         classroomStats: [
-          {
-            classroom_name: 'ปวช.1/1',
-            department_name: 'เทคโนโลยีสารสนเทศฯ',
-            student_count: 1,
-            attendance_count: 2,
-            attendance_rate: 100
-          },
-          {
-            classroom_name: 'ปวช.2/1',
-            department_name: 'คหกรรม',
-            student_count: 1,
-            attendance_count: 1,
-            attendance_rate: 50
-          }
+          { classroom_name: 'ปวช.1/1', department_name: 'เทคโนโลยีสารสนเทศฯ', student_count: 1, attendance_count: 2, attendance_rate: 100 },
+          { classroom_name: 'ปวช.2/1', department_name: 'คหกรรม', student_count: 1, attendance_count: 1, attendance_rate: 50 }
         ],
         activityStats: [
-          {
-            activity_title: 'เข้าแถวเช้า',
-            attendance_count: 3,
-            unique_students: 3
-          },
-          {
-            activity_title: 'กิจกรรมกีฬาสี',
-            attendance_count: 2,
-            unique_students: 2
-          }
+          { activity_title: 'เข้าแถวเช้า', attendance_count: 3, unique_students: 3 },
+          { activity_title: 'กิจกรรมกีฬาสี', attendance_count: 2, unique_students: 2 }
         ],
         dailyAttendance: [
-          {
-            date: new Date().toISOString().split('T')[0],
-            attendance_count: 2
-          },
-          {
-            date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            attendance_count: 1
-          },
-          {
-            date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            attendance_count: 2
-          }
+          { date: new Date().toISOString().split('T')[0], attendance_count: 2 },
+          { date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0], attendance_count: 1 },
+          { date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], attendance_count: 2 }
         ]
       }
-      
       setAnalyticsData(fallbackAnalytics)
     } finally {
       setLoading(false)

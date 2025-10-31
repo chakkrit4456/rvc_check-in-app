@@ -81,7 +81,7 @@ export default function StudentsPage() {
           department:departments(name)
         `)
         .eq('role', 'student')
-        .order('created_at', { ascending: false })
+        .order('student_id', { ascending: false })
 
       if (searchTerm) {
         query = query.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`)
