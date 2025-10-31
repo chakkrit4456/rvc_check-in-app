@@ -32,7 +32,9 @@ export default function DepartmentManagement() {
 
   // Form states
   const [newDepartment, setNewDepartment] = useState({ name: '', description: '' });
+  const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [newClassroom, setNewClassroom] = useState({ name: '', department_id: '', year_level: 1 });
+  const [newStudent, setNewStudent] = useState({ student_id: '', first_name: '', last_name: '', email: '', password: '', department_id: '', classroom_id: '', year_level: 1 });
 
   useEffect(() => {
     checkAuth();
@@ -183,27 +185,42 @@ export default function DepartmentManagement() {
     }
   };
 
-  const addDepartment = async () => {
+  const handleSaveDepartment = async () => {
     if (!newDepartment.name.trim()) {
       toast.error('กรุณากรอกชื่อแผนกวิชา');
       return;
     }
 
     try {
-      const { error } = await supabase
-        .from('departments')
-        .insert([newDepartment]);
+      let error;
+      if (editingDepartment) {
+        ({ error } = await supabase
+          .from('departments')
+          .update({ name: newDepartment.name, description: newDepartment.description })
+          .eq('id', editingDepartment.id));
+      } else {
+        ({ error } = await supabase
+          .from('departments')
+          .insert([newDepartment]));
+      }
 
       if (error) throw error;
 
-      toast.success('เพิ่มแผนกวิชาสำเร็จ');
+      toast.success(editingDepartment ? 'แก้ไขแผนกวิชาสำเร็จ' : 'เพิ่มแผนกวิชาสำเร็จ');
       setNewDepartment({ name: '', description: '' });
+      setEditingDepartment(null);
       setShowAddDepartment(false);
       loadDepartments();
     } catch (error) {
-      console.error('Error adding department:', error);
-      toast.error('ไม่สามารถเพิ่มแผนกวิชาได้');
+      console.error('Error saving department:', error);
+      toast.error(editingDepartment ? 'ไม่สามารถแก้ไขแผนกวิชาได้' : 'ไม่สามารถเพิ่มแผนกวิชาได้');
     }
+  };
+
+  const handleEditDepartment = (department: Department) => {
+    setEditingDepartment(department);
+    setNewDepartment({ name: department.name, description: department.description });
+    setShowAddDepartment(true);
   };
 
   const addClassroom = async () => {
@@ -264,7 +281,50 @@ export default function DepartmentManagement() {
       loadClassrooms();
     } catch (error) {
       console.error('Error deleting classroom:', error);
-      toast.error('ไม่สามารถลบห้องเรียนได้');
+  const addStudent = async () => {
+    const { student_id, first_name, last_name, email, password, department_id, classroom_id, year_level } = newStudent;
+    if (!student_id || !first_name || !last_name || !email || !password || !department_id || !classroom_id || !year_level) {
+      toast.error('กรุณากรอกข้อมูลนักเรียนให้ครบถ้วน');
+      return;
+    }
+
+    try {
+      // Step 1: Sign up the new user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            role: 'student'
+          }
+        }
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('User not created');
+
+      // Step 2: Insert the profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([{
+          id: authData.user.id,
+          student_id,
+          first_name,
+          last_name,
+          department_id,
+          classroom_id,
+          year_level,
+          role: 'student'
+        }]);
+
+      if (profileError) throw profileError;
+
+      toast.success('เพิ่มนักเรียนสำเร็จ');
+      setNewStudent({ student_id: '', first_name: '', last_name: '', email: '', password: '', department_id: '', classroom_id: '', year_level: 1 });
+
+    } catch (error) {
+      console.error('Error adding student:', error);
+      toast.error('ไม่สามารถเพิ่มนักเรียนได้: ' + error.message);
     }
   };
 
@@ -329,7 +389,7 @@ export default function DepartmentManagement() {
         {/* Add Department Form */}
         {showAddDepartment && (
           <div className="bg-gray-50 p-4 rounded-lg mb-6">
-            <h3 className="text-lg font-medium mb-4">เพิ่มแผนกวิชาใหม่</h3>
+            <h3 className="text-lg font-medium mb-4">{editingDepartment ? 'แก้ไขแผนกวิชา' : 'เพิ่มแผนกวิชาใหม่'}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -358,15 +418,16 @@ export default function DepartmentManagement() {
             </div>
             <div className="flex gap-2 mt-4">
               <button
-                onClick={addDepartment}
+                onClick={handleSaveDepartment}
                 className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
               >
-                บันทึก
+                {editingDepartment ? 'อัปเดต' : 'บันทึก'}
               </button>
               <button
                 onClick={() => {
                   setShowAddDepartment(false);
                   setNewDepartment({ name: '', description: '' });
+                  setEditingDepartment(null);
                 }}
                 className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
               >
@@ -387,6 +448,12 @@ export default function DepartmentManagement() {
                   className="text-red-600 hover:text-red-800 text-sm"
                 >
                   ลบ
+                </button>
+                <button
+                  onClick={() => handleEditDepartment(department)}
+                  className="text-blue-600 hover:text-blue-800 text-sm"
+                >
+                  แก้ไข
                 </button>
               </div>
               <p className="text-sm text-gray-600 mb-3">{department.description}</p>
@@ -515,6 +582,36 @@ export default function DepartmentManagement() {
               })}
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Student Management Section */}
+      <div className="bg-white rounded-lg shadow-md p-6 mt-8">
+        <h2 className="text-xl font-semibold text-gray-800 mb-6">เพิ่มนักเรียนใหม่</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <input type="text" placeholder="รหัสนักศึกษา" value={newStudent.student_id} onChange={(e) => setNewStudent({ ...newStudent, student_id: e.target.value })} className="input-field" />
+          <input type="text" placeholder="ชื่อจริง" value={newStudent.first_name} onChange={(e) => setNewStudent({ ...newStudent, first_name: e.target.value })} className="input-field" />
+          <input type="text" placeholder="นามสกุล" value={newStudent.last_name} onChange={(e) => setNewStudent({ ...newStudent, last_name: e.target.value })} className="input-field" />
+          <input type="email" placeholder="อีเมล" value={newStudent.email} onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })} className="input-field" />
+          <input type="password" placeholder="รหัสผ่าน" value={newStudent.password} onChange={(e) => setNewStudent({ ...newStudent, password: e.target.value })} className="input-field" />
+          <select value={newStudent.department_id} onChange={(e) => setNewStudent({ ...newStudent, department_id: e.target.value, classroom_id: '' })} className="input-field">
+            <option value="">เลือกแผนกวิชา</option>
+            {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+          <select value={newStudent.year_level} onChange={(e) => setNewStudent({ ...newStudent, year_level: parseInt(e.target.value), classroom_id: '' })} className="input-field">
+            <option value={1}>ปวช.1</option>
+            <option value={2}>ปวช.2</option>
+            <option value={3}>ปวช.3</option>
+            <option value={4}>ปวส.1</option>
+            <option value={5}>ปวส.2</option>
+          </select>
+          <select value={newStudent.classroom_id} onChange={(e) => setNewStudent({ ...newStudent, classroom_id: e.target.value })} className="input-field">
+            <option value="">เลือกห้องเรียน</option>
+            {getClassroomsByDepartmentAndYear(newStudent.department_id, newStudent.year_level).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div className="mt-4">
+          <button onClick={addStudent} className="btn-primary">เพิ่มนักเรียน</button>
         </div>
       </div>
       </main>

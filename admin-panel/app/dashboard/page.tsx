@@ -258,16 +258,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <div className="card">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">รายงาน</h3>
-            <p className="text-gray-600 mb-4">ดูรายงานและสถิติต่างๆ</p>
-            <button
-              onClick={() => router.push('/reports')}
-              className="btn-primary w-full"
-            >
-              ไปยังหน้ารายงาน
-            </button>
-          </div>
+
 
           <div className="card">
             <h3 className="text-lg font-medium text-gray-900 mb-4">ภาพยืนยัน</h3>

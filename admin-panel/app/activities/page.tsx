@@ -482,6 +482,14 @@ export default function ActivitiesPage() {
                   >
                     ลบ
                   </button>
+                  {activity.status === 'active' && (
+                    <button
+                      onClick={() => router.push(`/activities/${activity.id}/live`)}
+                      className="text-blue-600 hover:text-blue-900 text-sm"
+                    >
+                      Live
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

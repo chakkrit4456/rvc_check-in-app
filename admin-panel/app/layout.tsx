@@ -6,8 +6,8 @@ import ConditionalNavigation from '../components/ConditionalNavigation'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'RVC Admin Panel - ระบบจัดการกิจกรรมนักเรียน',
-  description: 'แผงควบคุมผู้ดูแลระบบจัดการการเข้าแถวและกิจกรรมนักเรียน',
+  title: 'RVC Admin Panel - ระบบจัดการกิจกรรมนักศึกษาวิทยาลัยอาชีวศึกษาร้อยเอ็ด',
+  description: 'แผงควบคุมผู้ดูแลระบบจัดการการเข้าแถวและกิจกรรม',
 }
 
 export default function RootLayout({

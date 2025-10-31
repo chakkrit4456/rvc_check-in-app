@@ -40,11 +40,17 @@ export default function AttendancePage() {
   const [filterActivity, setFilterActivity] = useState('')
   const [filterDate, setFilterDate] = useState('')
   const [activities, setActivities] = useState<any[]>([])
+  const [departments, setDepartments] = useState<any[]>([])
+  const [classrooms, setClassrooms] = useState<any[]>([])
+  const [filterDepartment, setFilterDepartment] = useState('')
+  const [filterClassroom, setFilterClassroom] = useState('')
+  const [filterYear, setFilterYear] = useState('')
 
   useEffect(() => {
     checkAuth()
     loadAttendanceRecords()
     loadActivities()
+    loadDepartmentsAndClassrooms()
   }, [])
 
   const checkAuth = () => {
@@ -84,10 +90,13 @@ export default function AttendancePage() {
         .from('attendance')
         .select(`
           *,
-          student:profiles(
+          student:profiles!inner(
             first_name,
             last_name,
             student_id,
+            year_level,
+            department_id,
+            classroom_id,
             classroom:classrooms(name),
             department:departments(name)
           ),
@@ -96,7 +105,7 @@ export default function AttendancePage() {
         .order('check_in_time', { ascending: false })
 
       if (searchTerm) {
-        query = query.or(`student.first_name.ilike.%${searchTerm}%,student.last_name.ilike.%${searchTerm}%,student.student_id.ilike.%${searchTerm}%`)
+        query = query.or(`student.first_name.ilike.%${searchTerm}%,student.last_name.ilike.%${searchTerm}%,student.student_id.ilike.%${searchTerm}%`, { foreignTable: 'student' })
       }
 
       if (filterActivity) {
@@ -111,6 +120,18 @@ export default function AttendancePage() {
         query = query
           .gte('check_in_time', startDate.toISOString())
           .lt('check_in_time', endDate.toISOString())
+      }
+
+      if (filterDepartment) {
+        query = query.eq('student.department_id', filterDepartment)
+      }
+
+      if (filterClassroom) {
+        query = query.eq('student.classroom_id', filterClassroom)
+      }
+
+      if (filterYear) {
+        query = query.eq('student.year_level', filterYear)
       }
 
       const { data, error } = await query
@@ -205,6 +226,27 @@ export default function AttendancePage() {
     }
   }
 
+  const loadDepartmentsAndClassrooms = async () => {
+    try {
+      const { data: departmentsData, error: departmentsError } = await supabase.from('departments').select('*')
+      const { data: classroomsData, error: classroomsError } = await supabase.from('classrooms').select('*')
+
+      if (departmentsError) {
+        console.error('Error loading departments:', departmentsError)
+      } else {
+        setDepartments(departmentsData || [])
+      }
+
+      if (classroomsError) {
+        console.error('Error loading classrooms:', classroomsError)
+      } else {
+        setClassrooms(classroomsData || [])
+      }
+    } catch (error) {
+      console.error('Error loading departments and classrooms:', error)
+    }
+  }
+
   const handleDelete = async (id: string) => {
     if (!confirm('คุณต้องการลบรายการเช็คชื่อนี้หรือไม่?')) {
       return
@@ -277,7 +319,7 @@ export default function AttendancePage() {
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               ค้นหา
@@ -317,6 +359,57 @@ export default function AttendancePage() {
               onChange={(e) => setFilterDate(e.target.value)}
               className="input-field"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              แผนกวิชา
+            </label>
+            <select
+              value={filterDepartment}
+              onChange={(e) => setFilterDepartment(e.target.value)}
+              className="input-field"
+            >
+              <option value="">ทั้งหมด</option>
+              {departments.map(department => (
+                <option key={department.id} value={department.id}>
+                  {department.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              ห้องเรียน
+            </label>
+            <select
+              value={filterClassroom}
+              onChange={(e) => setFilterClassroom(e.target.value)}
+              className="input-field"
+            >
+              <option value="">ทั้งหมด</option>
+              {classrooms.map(classroom => (
+                <option key={classroom.id} value={classroom.id}>
+                  {classroom.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              ชั้นปี
+            </label>
+            <select
+              value={filterYear}
+              onChange={(e) => setFilterYear(e.target.value)}
+              className="input-field"
+            >
+              <option value="">ทั้งหมด</option>
+              {[1, 2, 3, 4, 5].map(year => (
+                <option key={year} value={year}>
+                  {`ปวช. ${year}`}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex items-end">
             <button

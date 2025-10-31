@@ -35,6 +35,11 @@ type AnalyticsData = {
     date: string
     attendance_count: number
   }>
+  recentActivities: Array<{
+    title: string
+    start_time: string
+    attendance_count: number
+  }>
 }
 
 export default function AnalyticsPage() {
@@ -84,30 +89,18 @@ export default function AnalyticsPage() {
     try {
       setLoading(true)
 
-      const [
-        { count: totalStudents },
-        { count: activeStudents },
-        { data: activitiesData, error: activitiesError },
-        { data: attendanceData, error: attendanceError },
-        { data: departmentsData, error: departmentsError },
-        { data: classroomsData, error: classroomsError },
-        { data: profilesData, error: profilesError }
-      ] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student'),
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student').eq('is_active', true),
-        supabase.from('activities').select('*'),
-        supabase.from('attendance_records').select('*').gte('check_in_time', `${dateRange.start}T00:00:00`).lte('check_in_time', `${dateRange.end}T23:59:59`),
-        supabase.from('departments').select('*'),
-        supabase.from('classrooms').select('id, name, department_id'),
-        supabase.from('profiles').select('id, department_id, classroom_id').eq('role', 'student')
-      ])
+      // Overview Stats
+      const { count: totalStudents } = await supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student')
+      const { count: activeStudents } = await supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student').eq('is_active', true)
+      const { count: totalActivities } = await supabase.from('activities').select('id', { count: 'exact', head: true })
+      const { count: activeActivities } = await supabase.from('activities').select('id', { count: 'exact', head: true }).eq('status', 'active')
+      const { count: totalAttendance } = await supabase.from('attendance').select('id', { count: 'exact', head: true }).gte('check_in_time', `${dateRange.start}T00:00:00`).lte('check_in_time', `${dateRange.end}T23:59:59`)
 
-      if (activitiesError || attendanceError || departmentsError || classroomsError || profilesError) {
-        throw new Error('Failed to load data')
-      }
-
-      const today = new Date().toISOString().split('T')[0]
-      const todayAttendance = attendanceData?.filter(r => r.check_in_time.startsWith(today)).length || 0
+      // Department & Classroom Stats (less efficient, but keeps UI working)
+      const { data: departmentsData } = await supabase.from('departments').select('*')
+      const { data: classroomsData } = await supabase.from('classrooms').select('id, name, department_id')
+      const { data: profilesData } = await supabase.from('profiles').select('id, department_id, classroom_id').eq('role', 'student')
+      const { data: attendanceData } = await supabase.from('attendance').select('*').gte('check_in_time', `${dateRange.start}T00:00:00`).lte('check_in_time', `${dateRange.end}T23:59:59`)
 
       const studentDeptMap = new Map(profilesData?.map(p => [p.id, p.department_id]))
       const studentClassroomMap = new Map(profilesData?.map(p => [p.id, p.classroom_id]))
@@ -136,73 +129,74 @@ export default function AnalyticsPage() {
         }
       }) || []
 
-      const activityStats = activitiesData?.map(activity => {
-        const attendanceForActivity = attendanceData?.filter(a => a.activity_id === activity.id) || []
-        const uniqueStudents = new Set(attendanceForActivity.map(a => a.student_id)).size
-        return {
-          activity_title: activity.title,
-          attendance_count: attendanceForActivity.length,
-          unique_students: uniqueStudents
-        }
-      }) || []
+      // Activity Stats
+      const { data: activityStatsData } = await supabase.from('activities').select('title, attendance(count)')
+      const activityStats = activityStatsData?.map(a => ({ activity_title: a.title, attendance_count: a.attendance[0]?.count || 0, unique_students: 0 })) || []
 
-      const dailyAttendance = attendanceData?.reduce((acc, record) => {
-        const date = record.check_in_time.split('T')[0]
-        const existing = acc.find(d => d.date === date)
-        if (existing) {
-          existing.attendance_count++
-        } else {
-          acc.push({ date, attendance_count: 1 })
-        }
-        return acc
-      }, [] as { date: string, attendance_count: number }[]) || []
+      // Daily Attendance
+      const { data: dailyAttendanceData } = await supabase.rpc('get_daily_attendance', { start_date: dateRange.start, end_date: dateRange.end })
+      const dailyAttendance = dailyAttendanceData || []
 
+      // Recent Activities
+      const { data: recentActivitiesData } = await supabase.from('activities').select('title, start_time, attendance(count)').order('start_time', { ascending: false }).limit(5)
+      const recentActivities = recentActivitiesData?.map(a => ({ title: a.title, start_time: a.start_time, attendance_count: a.attendance[0]?.count || 0 })) || []
 
       const analytics: AnalyticsData = {
         totalStudents: totalStudents || 0,
         activeStudents: activeStudents || 0,
-        totalActivities: activitiesData?.length || 0,
-        activeActivities: activitiesData?.filter(a => a.status === 'active').length || 0,
-        totalAttendance: attendanceData?.length || 0,
-        todayAttendance: todayAttendance,
-        attendanceRate: totalStudents && attendanceData ? (attendanceData.length / totalStudents) * 100 : 0,
+        totalActivities: totalActivities || 0,
+        activeActivities: activeActivities || 0,
+        totalAttendance: totalAttendance || 0,
+        todayAttendance: dailyAttendance.find(d => d.date === new Date().toISOString().split('T')[0])?.attendance_count || 0,
+        attendanceRate: totalStudents && totalAttendance ? (totalAttendance / totalStudents) * 100 : 0,
         departmentStats,
         classroomStats,
         activityStats,
         dailyAttendance,
+        recentActivities
       }
 
       setAnalyticsData(analytics)
     } catch (error) {
       console.error('Error loading analytics data:', error)
       toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูลวิเคราะห์')
-      // Using fallback data as a recovery mechanism
-      console.log('Using fallback analytics data')
-      const fallbackAnalytics: AnalyticsData = {
-        totalStudents: 3, activeStudents: 3, totalActivities: 3, activeActivities: 2, totalAttendance: 5, todayAttendance: 2, attendanceRate: 66.67,
-        departmentStats: [
-          { department_name: 'เทคโนโลยีสารสนเทศฯ', student_count: 1, attendance_count: 2, attendance_rate: 100 },
-          { department_name: 'คหกรรม', student_count: 1, attendance_count: 1, attendance_rate: 50 },
-          { department_name: 'บริหารธุรกิจ', student_count: 1, attendance_count: 2, attendance_rate: 100 }
-        ],
-        classroomStats: [
-          { classroom_name: 'ปวช.1/1', department_name: 'เทคโนโลยีสารสนเทศฯ', student_count: 1, attendance_count: 2, attendance_rate: 100 },
-          { classroom_name: 'ปวช.2/1', department_name: 'คหกรรม', student_count: 1, attendance_count: 1, attendance_rate: 50 }
-        ],
-        activityStats: [
-          { activity_title: 'เข้าแถวเช้า', attendance_count: 3, unique_students: 3 },
-          { activity_title: 'กิจกรรมกีฬาสี', attendance_count: 2, unique_students: 2 }
-        ],
-        dailyAttendance: [
-          { date: new Date().toISOString().split('T')[0], attendance_count: 2 },
-          { date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0], attendance_count: 1 },
-          { date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], attendance_count: 2 }
-        ]
-      }
-      setAnalyticsData(fallbackAnalytics)
     } finally {
       setLoading(false)
     }
+  }
+
+  const exportToCSV = () => {
+    if (!analyticsData) return;
+
+    const csvData = [
+      ['รายงานสถิติระบบจัดการกิจกรรม'],
+      [''],
+      ['ข้อมูลรวม'],
+      [`จำนวนนักเรียนทั้งหมด,${analyticsData.totalStudents}`],
+      [`จำนวนกิจกรรมทั้งหมด,${analyticsData.totalActivities}`],
+      [`จำนวนการเข้าร่วมทั้งหมด,${analyticsData.totalAttendance}`],
+      [`อัตราการเข้าร่วม,${analyticsData.attendanceRate.toFixed(1)}%`],
+      [''],
+      ['สถิติตามแผนก'],
+      ['แผนก,จำนวนนักเรียน,จำนวนการเข้าร่วม,อัตราการเข้าร่วม'],
+      ...analyticsData.departmentStats.map(stat => [
+        stat.department_name,
+        stat.student_count,
+        stat.attendance_count,
+        `${stat.attendance_rate.toFixed(1)}%`
+      ])
+    ]
+
+    const csvContent = csvData.map(row => row.join(',')).join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `analytics_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   if (loading) {
@@ -230,9 +224,14 @@ export default function AnalyticsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">วิเคราะห์ข้อมูล</h1>
-        <p className="text-gray-600">สถิติและข้อมูลวิเคราะห์ของระบบ</p>
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">ภาพรวมและรายงาน</h1>
+          <p className="text-gray-600">สถิติและข้อมูลวิเคราะห์ของระบบ</p>
+        </div>
+        <button onClick={exportToCSV} className="btn-success">
+          ส่งออก CSV
+        </button>
       </div>
 
       {/* Date Range Filter */}
@@ -389,6 +388,28 @@ export default function AnalyticsPage() {
                   ></div>
                 </div>
                 <span className="text-sm font-medium text-gray-900">{day.attendance_count}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent Activities */}
+      <div className="bg-white rounded-lg shadow-md p-6 mt-8">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">กิจกรรมล่าสุด</h3>
+        <div className="space-y-4">
+          {analyticsData.recentActivities.map((activity, index) => (
+            <div key={index} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+              <div>
+                <h4 className="font-medium text-gray-900">{activity.title}</h4>
+                <p className="text-sm text-gray-500">
+                  {new Date(activity.start_time).toLocaleString('th-TH')}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900">
+                  {activity.attendance_count} คนเข้าร่วม
+                </p>
               </div>
             </div>
           ))}
