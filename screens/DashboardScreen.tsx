@@ -28,36 +28,24 @@ const DashboardScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   useEffect(() => {
-    loadUserData();
-    loadDashboardData();
+    loadAllData();
   }, []);
 
-  const loadUserData = async () => {
-    try {
-      const userProfile = await AsyncStorage.getItem('user_profile');
-      if (userProfile) {
-        const userData = JSON.parse(userProfile);
-        setUser(userData);
-        console.log('User data loaded:', userData);
-      } else {
-        // Try to get current user from Supabase
-        const currentUser = await getCurrentUser();
-        if (currentUser) {
-          setUser(currentUser);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading user data:', error);
-    }
-  };
-
-  const loadDashboardData = async () => {
+  const loadAllData = async () => {
     try {
       setLoading(true);
-      console.log('Loading dashboard data...');
-      
+      // First, get the current user's profile
+      const userProfile = await getCurrentUser();
+      setUser(userProfile);
+
+      if (!userProfile) {
+        // If no user, no point in loading the rest of the data
+        setStats(null);
+        return;
+      }
+
       // Load active activities
-      let { data: activities, error: activitiesError } = await supabase
+      const { data: activities, error: activitiesError } = await supabase
         .from('activities')
         .select(`
           *,
@@ -68,64 +56,27 @@ const DashboardScreen: React.FC = () => {
         .limit(5);
 
       if (activitiesError) {
-        console.error('Activities error:', activitiesError);
-        console.log('Using fallback activities data');
-        // Set fallback activities data
-        activities = [
-          {
-            id: '1',
-            title: 'เข้าแถวเช้า',
-            description: 'การเข้าแถวประจำวัน',
-            activity_type: 'morning_assembly',
-            location: 'สนามโรงเรียน',
-            start_time: new Date().toISOString(),
-            end_time: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-            status: 'active',
-            requires_photo: true,
-            creator: { first_name: 'Admin', last_name: 'User' }
-          },
-          {
-            id: '2',
-            title: 'กิจกรรมกีฬาสี',
-            description: 'การแข่งขันกีฬาสีประจำปี',
-            activity_type: 'sports',
-            location: 'สนามกีฬา',
-            start_time: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-            end_time: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
-            status: 'active',
-            requires_photo: true,
-            creator: { first_name: 'Admin', last_name: 'User' }
-          }
-        ];
-      } else {
-        console.log('Activities loaded:', activities);
+        throw activitiesError;
       }
 
       // Load user's attendance records
-      let attendanceRecords = [];
-      if (user?.id) {
-        try {
-          const { data: attendanceData, error: attendanceError } = await supabase
-            .from('attendance_records')
-            .select(`
-              *,
-              activity:activities(*)
-            `)
-            .eq('student_id', user.id)
-            .order('check_in_time', { ascending: false })
-            .limit(10);
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from('attendance_records')
+        .select(`
+          *,
+          activity:activities(*)
+        `)
+        .eq('student_id', userProfile.id)
+        .order('check_in_time', { ascending: false })
+        .limit(10);
 
-          if (!attendanceError) {
-            attendanceRecords = attendanceData || [];
-          }
-        } catch (error) {
-          console.log('Attendance records not available');
-        }
+      if (attendanceError) {
+        throw attendanceError;
       }
 
       // Calculate stats
       const totalActivities = activities?.length || 0;
-      const attendanceCount = attendanceRecords?.length || 0;
+      const attendanceCount = attendanceData?.length || 0;
       const attendanceRate = totalActivities > 0 ? (attendanceCount / totalActivities) * 100 : 0;
 
       const dashboardStats: DashboardStats = {
@@ -134,62 +85,15 @@ const DashboardScreen: React.FC = () => {
         attendance_count: attendanceCount,
         attendance_rate: Math.round(attendanceRate),
         recent_activities: activities || [],
-        upcoming_activities: activities || [],
+        upcoming_activities: activities || [], // This might need a different query
       };
 
       setStats(dashboardStats);
+
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-      console.log('Dashboard data loading failed, using fallback data');
-      
-      // Set fallback stats with sample data
-      const fallbackStats: DashboardStats = {
-        total_activities: 3,
-        active_activities: 2,
-        attendance_count: 1,
-        attendance_rate: 33,
-        recent_activities: [
-          {
-            id: '1',
-            title: 'เข้าแถวเช้า',
-            description: 'การเข้าแถวประจำวัน',
-            activity_type: 'morning_assembly',
-            location: 'สนามโรงเรียน',
-            start_time: new Date().toISOString(),
-            end_time: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-            status: 'active',
-            requires_photo: true,
-            creator: { first_name: 'Admin', last_name: 'User' }
-          },
-          {
-            id: '2',
-            title: 'กิจกรรมกีฬาสี',
-            description: 'การแข่งขันกีฬาสีประจำปี',
-            activity_type: 'sports',
-            location: 'สนามกีฬา',
-            start_time: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-            end_time: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
-            status: 'active',
-            requires_photo: true,
-            creator: { first_name: 'Admin', last_name: 'User' }
-          }
-        ],
-        upcoming_activities: [
-          {
-            id: '3',
-            title: 'ประชุมนักเรียน',
-            description: 'การประชุมประจำสัปดาห์',
-            activity_type: 'meeting',
-            location: 'หอประชุม',
-            start_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-            end_time: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
-            status: 'active',
-            requires_photo: false,
-            creator: { first_name: 'Admin', last_name: 'User' }
-          }
-        ],
-      };
-      setStats(fallbackStats);
+      Alert.alert('เกิดข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลแดชบอร์ดได้');
+      setStats(null); // Clear stats on error
     } finally {
       setLoading(false);
     }
@@ -197,7 +101,7 @@ const DashboardScreen: React.FC = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadDashboardData();
+    await loadAllData();
     setRefreshing(false);
   };
 
@@ -212,10 +116,7 @@ const DashboardScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             await logout();
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Login' }],
-            });
+            // AppNavigator will handle the navigation change automatically
           },
         },
       ]

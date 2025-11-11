@@ -41,19 +41,20 @@ const ProfileScreen: React.FC = () => {
   }, []);
 
   const loadUserData = async () => {
+    setLoading(true);
     try {
-      const userProfile = await AsyncStorage.getItem('user_profile');
+      const userProfile = await getCurrentUser();
       if (userProfile) {
-        const userData = JSON.parse(userProfile);
-        setUser(userData);
+        setUser(userProfile);
         setEditForm({
-          first_name: userData.first_name || '',
-          last_name: userData.last_name || '',
-          phone: userData.phone || '',
+          first_name: userProfile.first_name || '',
+          last_name: userProfile.last_name || '',
+          phone: userProfile.phone || '',
         });
       }
     } catch (error) {
       console.error('Error loading user data:', error);
+      Alert.alert('เกิดข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลผู้ใช้ได้');
     } finally {
       setLoading(false);
     }
@@ -83,11 +84,8 @@ const ProfileScreen: React.FC = () => {
       const result = await updateProfile(editForm);
       
       if (result.success) {
-        // Update local user data
-        const updatedUser = { ...user, ...editForm };
-        setUser(updatedUser);
-        await AsyncStorage.setItem('user_profile', JSON.stringify(updatedUser));
-        
+        // Update local user data from server for consistency
+        await loadUserData(); 
         setEditing(false);
         Alert.alert('สำเร็จ', 'อัปเดตโปรไฟล์เรียบร้อยแล้ว');
       } else {
@@ -160,6 +158,7 @@ const ProfileScreen: React.FC = () => {
     if (!user) return;
 
     try {
+      setSaving(true);
       const response = await fetch(uri);
       const blob = await response.blob();
       
@@ -180,9 +179,7 @@ const ProfileScreen: React.FC = () => {
       const result = await updateProfile({ profile_picture_url: publicUrl });
       
       if (result.success) {
-        const updatedUser = { ...user, profile_picture_url: publicUrl };
-        setUser(updatedUser);
-        await AsyncStorage.setItem('user_profile', JSON.stringify(updatedUser));
+        await loadUserData(); // Reload user data to get the new URL
         Alert.alert('สำเร็จ', 'อัปเดตรูปภาพเรียบร้อยแล้ว');
       } else {
         Alert.alert('ข้อผิดพลาด', 'ไม่สามารถอัปเดตรูปภาพได้');
@@ -190,6 +187,8 @@ const ProfileScreen: React.FC = () => {
     } catch (error) {
       console.error('Error uploading image:', error);
       Alert.alert('ข้อผิดพลาด', 'ไม่สามารถอัปโหลดรูปภาพได้');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -204,10 +203,7 @@ const ProfileScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             await logout();
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Login' }],
-            });
+            // AppNavigator will handle the navigation change automatically
           },
         },
       ]

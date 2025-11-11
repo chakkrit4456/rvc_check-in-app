@@ -1,15 +1,13 @@
 import React from 'react';
-import { View, Text } from 'react-native'
+import { Platform } from 'react-native';
 import AppNavigator from './navigation/AppNavigator';
-import { StatusBar } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 
 export default function App() {
   return (
-
     <>
-      <StatusBar barStyle="dark-content"/>
+      <StatusBar style={Platform.OS === 'web' ? 'dark' : 'dark-content'} />
       <AppNavigator />
     </>
-  )
-
+  );
 }

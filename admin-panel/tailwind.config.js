@@ -7,7 +7,16 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        secondary: '#10b981',
+        'secondary-hover': '#059669',
+        background: '#f3f4f6',
+        'card-background': '#ffffff',
+        'text-primary': '#1f2937',
+        'text-secondary': '#6b7280',
+        border: '#e5e7eb',
         primary: {
+          DEFAULT: '#4f46e5',
+          hover: '#4338ca',
           50: '#eff6ff',
           100: '#dbeafe',
           200: '#bfdbfe',

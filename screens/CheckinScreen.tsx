@@ -36,33 +36,21 @@ const CheckinScreen: React.FC = () => {
   const [cameraType, setCameraType] = useState<CameraType>('back');
 
   useEffect(() => {
-    loadUserData();
-    loadActivities();
+    loadInitialData();
   }, []);
 
-  const loadUserData = async () => {
+  const loadInitialData = async () => {
+    setLoading(true);
     try {
-      const userProfile = await AsyncStorage.getItem('user_profile');
-      if (userProfile) {
-        const userData = JSON.parse(userProfile);
-        setUser(userData);
-        console.log('User data loaded in CheckinScreen:', userData);
-      } else {
-        // Try to get current user from Supabase
-        const currentUser = await getCurrentUser();
-        if (currentUser) {
-          setUser(currentUser);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading user data:', error);
-    }
-  };
+      const userProfile = await getCurrentUser();
+      setUser(userProfile);
 
-  const loadActivities = async () => {
-    try {
-      setLoading(true);
-      
+      if (!userProfile) {
+        // No user, no activities to show
+        setActivities([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('activities')
         .select(`
@@ -73,65 +61,12 @@ const CheckinScreen: React.FC = () => {
         .order('start_time', { ascending: true });
 
       if (error) {
-        console.error('Activities error:', error);
-        console.log('Using fallback activities data');
-        
-        // Set fallback activities data
-        const fallbackActivities = [
-          {
-            id: '1',
-            title: 'เข้าแถวเช้า',
-            description: 'การเข้าแถวประจำวัน',
-            activity_type: 'morning_assembly',
-            location: 'สนามโรงเรียน',
-            start_time: new Date().toISOString(),
-            end_time: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-            status: 'active',
-            requires_photo: true,
-            target_classrooms: [],
-            target_departments: [],
-            target_year_levels: [1, 2, 3, 4, 5],
-            creator: { first_name: 'Admin', last_name: 'User' }
-          },
-          {
-            id: '2',
-            title: 'กิจกรรมกีฬาสี',
-            description: 'การแข่งขันกีฬาสีประจำปี',
-            activity_type: 'sports',
-            location: 'สนามกีฬา',
-            start_time: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-            end_time: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
-            status: 'active',
-            requires_photo: true,
-            target_classrooms: [],
-            target_departments: [],
-            target_year_levels: [1, 2, 3, 4, 5],
-            creator: { first_name: 'Admin', last_name: 'User' }
-          },
-          {
-            id: '3',
-            title: 'ประชุมนักเรียน',
-            description: 'การประชุมประจำสัปดาห์',
-            activity_type: 'meeting',
-            location: 'หอประชุม',
-            start_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-            end_time: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
-            status: 'active',
-            requires_photo: false,
-            target_classrooms: [],
-            target_departments: [],
-            target_year_levels: [4, 5],
-            creator: { first_name: 'Admin', last_name: 'User' }
-          }
-        ];
-        
-        setActivities(fallbackActivities);
-      } else {
-        setActivities(data || []);
+        throw error;
       }
+      setActivities(data || []);
     } catch (error) {
-      console.error('Error loading activities:', error);
-      console.log('Activities loading failed, using empty array');
+      console.error('Error loading initial data:', error);
+      Alert.alert('เกิดข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลกิจกรรมได้');
       setActivities([]);
     } finally {
       setLoading(false);
@@ -212,17 +147,17 @@ const CheckinScreen: React.FC = () => {
     }
   };
 
+  const cameraRef = React.useRef<CameraView>(null);
+
   const takePicture = async () => {
-    if (!selectedActivity) return;
+    if (!selectedActivity || !cameraRef.current) return;
 
     try {
-      // This would be implemented with the actual camera capture
-      // For now, we'll simulate it
-      const mockImageUri = 'data:image/jpeg;base64,mock_image_data';
-      setCapturedImage(mockImageUri);
+      const photo = await cameraRef.current.takePictureAsync();
+      setCapturedImage(photo.uri);
       setShowCamera(false);
       
-      await processCheckIn(selectedActivity, mockImageUri);
+      await processCheckIn(selectedActivity, photo.uri);
     } catch (error) {
       console.error('Error taking picture:', error);
       Alert.alert('ข้อผิดพลาด', 'ไม่สามารถถ่ายภาพได้');
@@ -436,6 +371,7 @@ const CheckinScreen: React.FC = () => {
       >
         <View style={styles.cameraContainer}>
           <CameraView
+            ref={cameraRef}
             style={styles.camera}
             facing={cameraType}
           >

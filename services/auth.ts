@@ -1,174 +1,72 @@
 // services/auth.ts
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 import { LoginResponse, RegisterResponse, Profile } from '../types';
+import { Alert } from 'react-native';
 
-export const login = async (email: string, password: string, loginType: 'email' | 'student' = 'email'): Promise<LoginResponse> => {
+export const login = async (loginIdentifier: string, password: string, loginType: 'email' | 'student' = 'email'): Promise<LoginResponse> => {
   try {
-    console.log('Attempting login with:', email, 'type:', loginType);
-    
-    // Always use profile lookup instead of Supabase Auth
-    let profileQuery;
-    
+    let email = loginIdentifier;
+
+    // If login is with student ID, we need to get the email first
     if (loginType === 'student') {
-      // Login with student ID and national ID
-      profileQuery = supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select(`
-          *,
-          classroom:classrooms(*),
-          department:departments(*)
-        `)
-        .eq('student_id', email)
-        .eq('national_id', password)
+        .select('email')
+        .eq('student_id', loginIdentifier)
         .single();
-    } else {
-      // Login with email
-      profileQuery = supabase
-        .from('profiles')
-        .select(`
-          *,
-          classroom:classrooms(*),
-          department:departments(*)
-        `)
-        .eq('email', email)
-        .single();
+
+      if (profileError || !profile) {
+        console.error('Error finding student profile:', profileError);
+        return { success: false, message: 'รหัสนักศึกษาไม่ถูกต้อง' };
+      }
+      email = profile.email;
     }
 
-    const { data: profile, error: profileError } = await profileQuery;
+    // Now, sign in with Supabase Auth
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password,
+    });
 
-    if (profileError) {
-      console.error('Profile fetch error:', profileError);
-      console.log('Using fallback authentication system');
-      
-      // Fallback: Check for admin login
-      if (loginType === 'email' && email === 'chakkritnb1123@gmail.com') {
-        const fallbackAdmin = {
-          id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12',
-          student_id: 'admin',
-          national_id: '66202040013',
-          first_name: 'Chakkrit',
-          last_name: 'Admin',
-          gender: 'male',
-          email: 'chakkritnb1123@gmail.com',
-          phone: '0812345678',
-          role: 'admin',
-          is_active: true,
-          classroom: null,
-          department: null
-        };
-
-        const mockSession = {
-          access_token: 'admin_session_' + Date.now(),
-          refresh_token: 'admin_refresh_' + Date.now(),
-          expires_in: 3600,
-          token_type: 'bearer',
-          user: {
-            id: fallbackAdmin.id,
-            email: fallbackAdmin.email,
-            role: fallbackAdmin.role,
-          }
-        };
-
-        await AsyncStorage.setItem('auth_session', JSON.stringify(mockSession));
-        await AsyncStorage.setItem('user_profile', JSON.stringify(fallbackAdmin));
-
-        return {
-          success: true,
-          user: fallbackAdmin as Profile,
-          session: mockSession,
-        };
-      }
-      
-      // Fallback: Check for test student
-      if (loginType === 'student' && email === '1234567890' && password === '1234567890123') {
-        const fallbackStudent = {
-          id: '01ce7d17-5810-408b-93f2-d375622e782f',
-          student_id: '1234567890',
-          national_id: '1234567890123',
-          first_name: 'Test',
-          last_name: 'Student',
-          gender: 'male',
-          email: 'test.student@example.com',
-          phone: '0987654321',
-          role: 'student',
-          is_active: true,
-          classroom: { id: 'class-001', name: 'ปวช.1/1' },
-          department: { id: 'd003', name: 'เทคโนโลยีสารสนเทศฯ' }
-        };
-
-        const mockSession = {
-          access_token: 'student_session_' + Date.now(),
-          refresh_token: 'student_refresh_' + Date.now(),
-          expires_in: 3600,
-          token_type: 'bearer',
-          user: {
-            id: fallbackStudent.id,
-            email: fallbackStudent.email,
-            role: fallbackStudent.role,
-          }
-        };
-
-        await AsyncStorage.setItem('auth_session', JSON.stringify(mockSession));
-        await AsyncStorage.setItem('user_profile', JSON.stringify(fallbackStudent));
-
-        return {
-          success: true,
-          user: fallbackStudent as Profile,
-          session: mockSession,
-        };
-      }
-      
-      return {
-        success: false,
-        message: loginType === 'student' 
-          ? 'รหัสนักศึกษาหรือรหัสบัตรประชาชนไม่ถูกต้อง'
-          : 'อีเมลหรือรหัสผ่านไม่ถูกต้อง',
+    if (error) {
+      console.error('Supabase login error:', error.message);
+      return { 
+        success: false, 
+        message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' 
       };
     }
+    
+    // On successful login, onAuthStateChange in AppNavigator will handle the session.
+    // We don't need to return user/session data here or manually store it.
+    return { success: true };
 
-    if (!profile) {
-      return {
-        success: false,
-        message: 'ไม่พบข้อมูลผู้ใช้',
-      };
-    }
-
-    console.log('Login successful:', profile);
-
-    // Create mock session for all logins
-    const mockSession = {
-      access_token: 'session_' + Date.now(),
-      refresh_token: 'refresh_' + Date.now(),
-      expires_in: 3600,
-      token_type: 'bearer',
-      user: {
-        id: profile.id,
-        email: profile.email,
-        role: profile.role,
-      }
-    };
-
-    // Store session data
-    await AsyncStorage.setItem('auth_session', JSON.stringify(mockSession));
-    await AsyncStorage.setItem('user_profile', JSON.stringify(profile));
-
-    return {
-      success: true,
-      user: profile as Profile,
-      session: mockSession,
-    };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login error:', error);
     return {
       success: false,
-      message: 'เกิดข้อผิดพลาดในการเชื่อมต่อ',
+      message: error.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ',
     };
   }
 };
 
 export const register = async (formData: any): Promise<RegisterResponse> => {
   try {
+    // Check if student_id or email already exists
+    const { data: existingProfile, error: existingError } = await supabase
+      .from('profiles')
+      .select('student_id, email')
+      .or(`student_id.eq.${formData.student_id},email.eq.${formData.email}`)
+      .single();
+
+    if (existingProfile) {
+      if (existingProfile.student_id === formData.student_id) {
+        return { success: false, message: 'รหัสนักศึกษานี้ถูกใช้แล้ว' };
+      }
+      if (existingProfile.email === formData.email) {
+        return { success: false, message: 'อีเมลนี้ถูกใช้แล้ว' };
+      }
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
@@ -176,22 +74,47 @@ export const register = async (formData: any): Promise<RegisterResponse> => {
         data: {
           first_name: formData.first_name,
           last_name: formData.last_name,
+          role: 'student', // Default role for new sign-ups
         },
       },
     });
 
     if (error) {
+      console.error('Supabase signup error:', error.message);
       return {
         success: false,
         message: error.message || 'การลงทะเบียนไม่สำเร็จ',
       };
     }
 
-    if (data.user) {
-      // Create profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
+          if (data.user) {
+          // Check if a profile with this ID already exists
+          const { data: existingProfileById, error: checkError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', data.user.id)
+            .single();
+    
+          if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means no rows found
+            console.error('Error checking for existing profile by ID:', checkError);
+            return {
+              success: false,
+              message: 'เกิดข้อผิดพลาดในการตรวจสอบโปรไฟล์',
+            };
+          }
+    
+          if (existingProfileById) {
+            console.error('Profile with this ID already exists:', data.user.id);
+            return {
+              success: false,
+              message: 'มีโปรไฟล์สำหรับผู้ใช้นี้อยู่แล้ว กรุณาติดต่อผู้ดูแลระบบ',
+            };
+          }
+    
+          // Create profile in 'profiles' table
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
           id: data.user.id,
           student_id: formData.student_id,
           national_id: formData.national_id,
@@ -208,13 +131,16 @@ export const register = async (formData: any): Promise<RegisterResponse> => {
         });
 
       if (profileError) {
-        console.error('Profile creation error:', profileError);
         return {
           success: false,
-          message: 'ไม่สามารถสร้างโปรไฟล์ได้',
+          message: `ไม่สามารถสร้างโปรไฟล์ได้: ${profileError.message}`,
         };
       }
 
+      Alert.alert(
+        'ลงทะเบียนสำเร็จ',
+        'กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชีของคุณก่อนเข้าสู่ระบบ'
+      );
       return {
         success: true,
         message: 'ลงทะเบียนสำเร็จ กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชี',
@@ -223,50 +149,30 @@ export const register = async (formData: any): Promise<RegisterResponse> => {
 
     return {
       success: false,
-      message: 'ไม่สามารถสร้างบัญชีได้',
+      message: 'ไม่สามารถสร้างบัญชีผู้ใช้ได้',
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Register error:', error);
     return {
       success: false,
-      message: 'เกิดข้อผิดพลาดในการเชื่อมต่อ',
+      message: error.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ',
     };
   }
 };
 
-export const logout = async (): Promise<void> => {
-  try {
-    // Sign out from Supabase
-    await supabase.auth.signOut();
 
-    // Clear local storage
-    await AsyncStorage.multiRemove([
-      'auth_session',
-      'user_profile',
-      'device_token',
-    ]);
-  } catch (error) {
-    console.error('Logout error:', error);
-    // Still clear local storage even if API call fails
-    await AsyncStorage.multiRemove([
-      'auth_session',
-      'user_profile',
-      'device_token',
-    ]);
+export const logout = async (): Promise<void> => {
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    console.error('Logout error:', error.message);
   }
+  // onAuthStateChange in AppNavigator will handle navigation.
+  // No need to manually clear AsyncStorage.
 };
 
-export const getCurrentUser = async (): Promise<Profile | null> => {
+export const getCurrentUserProfile = async (): Promise<Profile | null> => {
   try {
-    // First try to get from AsyncStorage
-    const storedProfile = await AsyncStorage.getItem('user_profile');
-    if (storedProfile) {
-      return JSON.parse(storedProfile);
-    }
-
-    // If not in storage, try to get from Supabase auth
     const { data: { user } } = await supabase.auth.getUser();
-    
     if (!user) return null;
 
     const { data: profile, error } = await supabase
@@ -280,21 +186,23 @@ export const getCurrentUser = async (): Promise<Profile | null> => {
       .single();
 
     if (error) {
-      console.error('Profile fetch error:', error);
+      console.error('Get profile error:', error);
       return null;
     }
 
     return profile as Profile;
   } catch (error) {
-    console.error('Get current user error:', error);
+    console.error('Get current user profile error:', error);
     return null;
   }
 };
 
+// Alias for getCurrentUserProfile for backward compatibility
+export const getCurrentUser = getCurrentUserProfile;
+
 export const updateProfile = async (updates: Partial<Profile>): Promise<{ success: boolean; message?: string }> => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    
     if (!user) {
       return { success: false, message: 'ไม่พบผู้ใช้' };
     }
@@ -309,25 +217,23 @@ export const updateProfile = async (updates: Partial<Profile>): Promise<{ succes
     }
 
     return { success: true, message: 'อัปเดตโปรไฟล์สำเร็จ' };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Update profile error:', error);
-    return { success: false, message: 'เกิดข้อผิดพลาดในการอัปเดต' };
+    return { success: false, message: error.message || 'เกิดข้อผิดพลาดในการอัปเดต' };
   }
 };
 
 export const resetPassword = async (email: string): Promise<{ success: boolean; message?: string }> => {
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://your-app.com/reset-password',
-    });
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
 
     if (error) {
       return { success: false, message: error.message };
     }
 
-    return { success: true, message: 'ส่งลิงก์รีเซ็ตรหัสผ่านไปยังอีเมลของคุณแล้ว' };
-  } catch (error) {
+    return { success: true, message: 'หากอีเมลนี้มีอยู่ในระบบ เราได้ส่งลิงก์รีเซ็ตรหัสผ่านไปให้แล้ว' };
+  } catch (error: any) {
     console.error('Reset password error:', error);
-    return { success: false, message: 'เกิดข้อผิดพลาดในการรีเซ็ตรหัสผ่าน' };
+    return { success: false, message: error.message || 'เกิดข้อผิดพลาด' };
   }
 };

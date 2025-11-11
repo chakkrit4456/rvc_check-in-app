@@ -94,13 +94,13 @@ export default function AnalyticsPage() {
       const { count: activeStudents } = await supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student').eq('is_active', true)
       const { count: totalActivities } = await supabase.from('activities').select('id', { count: 'exact', head: true })
       const { count: activeActivities } = await supabase.from('activities').select('id', { count: 'exact', head: true }).eq('status', 'active')
-      const { count: totalAttendance } = await supabase.from('attendance').select('id', { count: 'exact', head: true }).gte('check_in_time', `${dateRange.start}T00:00:00`).lte('check_in_time', `${dateRange.end}T23:59:59`)
+      const { count: totalAttendance } = await supabase.from('attendance_records').select('id', { count: 'exact', head: true }).gte('check_in_time', `${dateRange.start}T00:00:00`).lte('check_in_time', `${dateRange.end}T23:59:59`)
 
       // Department & Classroom Stats (less efficient, but keeps UI working)
       const { data: departmentsData } = await supabase.from('departments').select('*')
       const { data: classroomsData } = await supabase.from('classrooms').select('id, name, department_id')
       const { data: profilesData } = await supabase.from('profiles').select('id, department_id, classroom_id').eq('role', 'student')
-      const { data: attendanceData } = await supabase.from('attendance').select('*').gte('check_in_time', `${dateRange.start}T00:00:00`).lte('check_in_time', `${dateRange.end}T23:59:59`)
+      const { data: attendanceData } = await supabase.from('attendance_records').select('*').gte('check_in_time', `${dateRange.start}T00:00:00`).lte('check_in_time', `${dateRange.end}T23:59:59`)
 
       const studentDeptMap = new Map(profilesData?.map(p => [p.id, p.department_id]))
       const studentClassroomMap = new Map(profilesData?.map(p => [p.id, p.classroom_id]))

@@ -63,7 +63,7 @@ export default function LiveActivityPage() {
       .channel(`realtime:attendance:activity_id=eq.${activityId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'attendance', filter: `activity_id=eq.${activityId}` },
+        { event: 'INSERT', schema: 'public', table: 'attendance_records', filter: `activity_id=eq.${activityId}` },
         async (payload) => {
           const newAttendeeId = payload.new.student_id
           const { data: profile, error } = await supabase
@@ -108,8 +108,20 @@ export default function LiveActivityPage() {
   }, [filters, allAttendees])
 
   const checkAuth = async () => {
-    const adminSession = localStorage.getItem('admin_session')
-    if (!adminSession) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      router.push('/login')
+      return
+    }
+    
+    // Check if user has admin or staff role
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'staff')) {
       router.push('/login')
     }
   }
@@ -141,7 +153,7 @@ export default function LiveActivityPage() {
 
   const loadInitialAttendees = async () => {
     const { data, error } = await supabase
-      .from('attendance')
+      .from('attendance_records')
       .select('id, student_id, profiles:profiles(*, department:departments(name), classroom:classrooms(name))')
       .eq('activity_id', activityId)
       .order('created_at', { ascending: false })

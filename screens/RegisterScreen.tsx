@@ -246,16 +246,9 @@ const RegisterScreen: React.FC = () => {
       });
 
       if (result.success) {
-        Alert.alert(
-          'ลงทะเบียนสำเร็จ',
-          'กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชีของคุณ',
-          [
-            {
-              text: 'ตกลง',
-              onPress: () => navigation.navigate('Login'),
-            },
-          ]
-        );
+        // The service function already shows an alert to the user.
+        // We just navigate back to Login.
+        navigation.navigate('Login');
       } else {
         setError(result.message || 'การลงทะเบียนไม่สำเร็จ');
       }

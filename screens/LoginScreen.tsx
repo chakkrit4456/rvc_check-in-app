@@ -21,12 +21,15 @@ import { RootStackParamList } from '../types';
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
 // Services
-import { login } from '../services/auth';
+import { login, resetPassword } from '../services/auth';
+
+// Utils
+import { createShadowStyle } from '../utils/shadowStyles';
 
 const LoginScreen: React.FC = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
   
-  const [email, setEmail] = useState<string>('');
+  const [email, setEmail] = useState<string>(''); // This will hold email or student_id
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -39,9 +42,9 @@ const LoginScreen: React.FC = () => {
 
   const checkStoredCredentials = async () => {
     try {
-      const storedEmail = await AsyncStorage.getItem('remembered_email');
-      if (storedEmail) {
-        setEmail(storedEmail);
+      const storedIdentifier = await AsyncStorage.getItem('remembered_identifier');
+      if (storedIdentifier) {
+        setEmail(storedIdentifier);
         setRememberMe(true);
       }
     } catch (error) {
@@ -50,36 +53,25 @@ const LoginScreen: React.FC = () => {
   };
 
   const handleLogin = async () => {
-    // Reset error
     setError('');
 
-    // Validate inputs
-    if (!email.trim()) {
+    const identifier = email.trim();
+    const pass = password.trim();
+
+    if (!identifier) {
       setError(loginType === 'student' ? 'กรุณากรอกรหัสนักศึกษา' : 'กรุณากรอกอีเมล');
       return;
     }
 
-    if (!password.trim()) {
-      setError(loginType === 'student' ? 'กรุณากรอกรหัสบัตรประชาชน' : 'กรุณากรอกรหัสผ่าน');
+    if (!pass) {
+      setError('กรุณากรอกรหัสผ่าน');
       return;
     }
 
-    // Validate based on login type
     if (loginType === 'email') {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
+      if (!emailRegex.test(identifier)) {
         setError('รูปแบบอีเมลไม่ถูกต้อง');
-        return;
-      }
-    } else {
-      // Validate student ID format (assuming it's numeric)
-      if (!/^\d+$/.test(email)) {
-        setError('รหัสนักศึกษาต้องเป็นตัวเลขเท่านั้น');
-        return;
-      }
-      // Validate national ID format (13 digits)
-      if (!/^\d{13}$/.test(password)) {
-        setError('รหัสบัตรประชาชนต้องมี 13 หลัก');
         return;
       }
     }
@@ -87,29 +79,17 @@ const LoginScreen: React.FC = () => {
     setLoading(true);
 
     try {
-      // Call login API
-      const loginData = await login(email, password, loginType);
-      
-      if (loginData.success && loginData.user) {
-        // Store session data
-        await AsyncStorage.setItem('auth_session', JSON.stringify(loginData.session));
-        await AsyncStorage.setItem('user_profile', JSON.stringify(loginData.user));
+      const result = await login(identifier, pass, loginType);
 
-        // Store credentials if remember me is checked
-        if (rememberMe) {
-          await AsyncStorage.setItem('remembered_email', email);
-        } else {
-          await AsyncStorage.removeItem('remembered_email');
-        }
-
-        // Navigate to Dashboard
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Dashboard' }],
-        });
-
+      if (!result.success) {
+        setError(result.message || 'ล็อกอินไม่สำเร็จ');
       } else {
-        setError(loginData.message || 'ล็อกอินไม่สำเร็จ');
+        // On success, AppNavigator's onAuthStateChange will handle navigation.
+        if (rememberMe) {
+          await AsyncStorage.setItem('remembered_identifier', identifier);
+        } else {
+          await AsyncStorage.removeItem('remembered_identifier');
+        }
       }
     } catch (err: any) {
       console.log('Login error:', err);
@@ -119,12 +99,21 @@ const LoginScreen: React.FC = () => {
     }
   };
 
-  const handleForgotPassword = () => {
-    Alert.alert(
-      'ลืมรหัสผ่าน',
-      'กรุณาติดต่อเจ้าหน้าที่เพื่อขอรับรหัสผ่านใหม่',
-      [{ text: 'ตกลง' }]
-    );
+  const handleForgotPassword = async () => {
+    if (loginType !== 'email' || !email) {
+      Alert.alert('ลืมรหัสผ่าน', 'กรุณากรอกอีเมลของคุณในช่องอีเมล แล้วกด "ลืมรหัสผ่าน" อีกครั้ง');
+      return;
+    }
+    
+    setLoading(true);
+    const result = await resetPassword(email);
+    setLoading(false);
+
+    if (result.success) {
+      Alert.alert('ตรวจสอบอีเมลของคุณ', result.message);
+    } else {
+      Alert.alert('เกิดข้อผิดพลาด', result.message);
+    }
   };
 
   return (
@@ -198,18 +187,15 @@ const LoginScreen: React.FC = () => {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>
-              {loginType === 'student' ? 'รหัสบัตรประชาชน' : 'รหัสผ่าน'}
-            </Text>
+            <Text style={styles.label}>รหัสผ่าน</Text>
             <TextInput
               style={styles.input}
-              placeholder={loginType === 'student' ? 'กรอกรหัสบัตรประชาชน 13 หลัก' : 'กรอกรหัสผ่าน'}
+              placeholder={'กรอกรหัสผ่าน'}
               placeholderTextColor="#999"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoComplete="password"
-              maxLength={loginType === 'student' ? 13 : undefined}
             />
           </View>
 
@@ -225,7 +211,7 @@ const LoginScreen: React.FC = () => {
               ]}>
                 {rememberMe && <Text style={styles.checkmark}>✓</Text>}
               </View>
-              <Text style={styles.rememberText}>จำอีเมล</Text>
+              <Text style={styles.rememberText}>จำฉันไว้ในระบบ</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handleForgotPassword}>
@@ -325,14 +311,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    ...createShadowStyle('#000', { width: 0, height: 2 }, 0.1, 3.84, 5),
   },
   formTitle: {
     fontSize: 20,

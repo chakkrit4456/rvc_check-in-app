@@ -17,11 +17,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th">
-      <body className={inter.className}>
-        <ConditionalNavigation />
-        <main className="min-h-screen bg-gray-50">
-          {children}
-        </main>
+      <body className={`${inter.className} bg-gray-100`}>
+        <div className="flex min-h-screen">
+          <ConditionalNavigation />
+          <main className="flex-1 p-8">
+            {children}
+          </main>
+        </div>
         <Toaster position="top-right" />
       </body>
     </html>
