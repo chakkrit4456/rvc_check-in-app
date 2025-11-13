@@ -52,30 +52,49 @@ export const login = async (loginIdentifier: string, password: string, loginType
 export const register = async (formData: any): Promise<RegisterResponse> => {
   try {
     // Check if student_id or email already exists
-    const { data: existingProfile, error: existingError } = await supabase
+    const { data: existingProfiles, error: existingError } = await supabase
       .from('profiles')
       .select('student_id, email')
-      .or(`student_id.eq.${formData.student_id},email.eq.${formData.email}`)
-      .single();
+      .or(`student_id.eq.${formData.student_id},email.eq.${formData.email}`);
 
-    if (existingProfile) {
-      if (existingProfile.student_id === formData.student_id) {
-        return { success: false, message: 'รหัสนักศึกษานี้ถูกใช้แล้ว' };
-      }
-      if (existingProfile.email === formData.email) {
-        return { success: false, message: 'อีเมลนี้ถูกใช้แล้ว' };
+    if (existingError) {
+      // If the check itself fails, log it but let the signup proceed.
+      // The database's unique constraints will be the ultimate guard.
+      console.error('Error checking for existing profile:', existingError);
+    }
+
+    // If we found any profiles, check for the specific conflict.
+    if (existingProfiles && existingProfiles.length > 0) {
+      for (const profile of existingProfiles) {
+        if (profile.student_id === formData.student_id) {
+          return { success: false, message: 'รหัสนักศึกษานี้ถูกใช้แล้ว' };
+        }
+        if (profile.email === formData.email) {
+          return { success: false, message: 'อีเมลนี้ถูกใช้แล้ว' };
+        }
       }
     }
+
+    // Prepare all user metadata to be saved during signup
+    const userData = {
+      first_name: formData.first_name,
+      last_name: formData.last_name,
+      student_id: formData.student_id,
+      national_id: formData.national_id,
+      gender: formData.gender,
+      phone: formData.phone,
+      department_id: formData.department_id,
+      classroom_id: formData.classroom_id,
+      year_level: formData.year_level,
+      profile_picture_url: formData.profile_picture_url,
+      role: 'student',
+    };
 
     const { data, error } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
       options: {
-        data: {
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          role: 'student', // Default role for new sign-ups
-        },
+        data: userData, // All data will be in raw_user_meta_data
       },
     });
 
@@ -87,56 +106,8 @@ export const register = async (formData: any): Promise<RegisterResponse> => {
       };
     }
 
-          if (data.user) {
-          // Check if a profile with this ID already exists
-          const { data: existingProfileById, error: checkError } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('id', data.user.id)
-            .single();
-    
-          if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means no rows found
-            console.error('Error checking for existing profile by ID:', checkError);
-            return {
-              success: false,
-              message: 'เกิดข้อผิดพลาดในการตรวจสอบโปรไฟล์',
-            };
-          }
-    
-          if (existingProfileById) {
-            console.error('Profile with this ID already exists:', data.user.id);
-            return {
-              success: false,
-              message: 'มีโปรไฟล์สำหรับผู้ใช้นี้อยู่แล้ว กรุณาติดต่อผู้ดูแลระบบ',
-            };
-          }
-    
-          // Create profile in 'profiles' table
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({
-          id: data.user.id,
-          student_id: formData.student_id,
-          national_id: formData.national_id,
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          gender: formData.gender,
-          email: formData.email,
-          phone: formData.phone,
-          department_id: formData.department_id,
-          classroom_id: formData.classroom_id,
-          year_level: formData.year_level,
-          role: 'student',
-          profile_picture_url: formData.profile_picture_url,
-        });
-
-      if (profileError) {
-        return {
-          success: false,
-          message: `ไม่สามารถสร้างโปรไฟล์ได้: ${profileError.message}`,
-        };
-      }
-
+    if (data.user) {
+      // The trigger has already created a profile with all the metadata
       Alert.alert(
         'ลงทะเบียนสำเร็จ',
         'กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชีของคุณก่อนเข้าสู่ระบบ'
